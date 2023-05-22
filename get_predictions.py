@@ -93,7 +93,6 @@ def get_distance(structure_path, chain='A'):
     dist_matrix = calc_dist_matrix(residues) # recycling dimensions are added later
     x = np.expand_dims(dist_matrix, axis=0)
     # replace zero values and then invert.
-    # TODO: might be better to set thresholds to avoid extreme values
     x[0][x[0] == 0] = x[0][x[0] > 0].min()  # replace zero values in pae / distance
     x[0] = x[0] ** (-1)
     return x
@@ -125,35 +124,6 @@ def load_model(args):
     learner.load_checkpoints()
     return learner
 
-
-def show_visuals_for_paper(x, A_hat, domain_dict, savedir):
-    # plot A_hat
-    plt.figure(figsize=(10, 10))
-    plt.imshow(A_hat, interpolation="nearest")
-    plt.savefig(os.path.join(savedir, f'final_A_hat'))
-    plt.xticks([])
-    plt.clf()
-
-    y_remade = make_pair_labels(x.shape[-1], domain_dict)
-    # plot y
-    plt.figure(figsize=(10, 10))
-    plt.imshow(y_remade, interpolation="nearest")
-    plt.xticks([])
-    plt.savefig(os.path.join(savedir, f'final_y'))
-    plt.clf()
-
-    plt.figure(figsize=(10, 10))
-    plt.imshow(x[0,0], interpolation="nearest")
-    plt.xticks([])
-    plt.savefig(os.path.join(savedir, f'dist_matrix'))
-    plt.clf()
-
-    for i in range(1, x.shape[1]):
-        plt.figure(figsize=(10, 10))
-        plt.imshow(x[0,i], interpolation="nearest")
-        plt.xticks([])
-        plt.savefig(os.path.join(savedir, f'x{i}'))
-        plt.clf()
 
 def convert_domain_dict_strings(domain_dict):
     """
@@ -207,16 +177,18 @@ def main(args, secondary_structure=False):
             pdb_path = os.path.join(structure_dir, fname)
             x = inference_time_create_features(pdb_path, chain="A", secondary_structure=secondary_structure)
             A_hat, domain_dict, uncertainty = model.predict(x)
-            show_visuals_for_paper(x, A_hat=A_hat[0], domain_dict=domain_dict[0], savedir=save_dir)
             names, bounds = convert_domain_dict_strings(domain_dict[0])
-            generate_pymol_image(
-                pdb_path=os.path.join(structure_dir, fname),
-                chain='A',
-                names=names,
-                bounds=bounds,
-                image_out_path=os.path.join(save_dir, f'{fname}.png'),
-                path_to_script=os.path.join(image_out_dir, 'image_gen.pml'),
-            )
+            with open(os.path.join(save_dir, f'{fname}.txt'), 'w') as f:
+                f.write(f'{names}\n{bounds}')
+            if args.pymol_visual:
+                generate_pymol_image(
+                    pdb_path=os.path.join(structure_dir, fname),
+                    chain='A',
+                    names=names,
+                    bounds=bounds,
+                    image_out_path=os.path.join(save_dir, f'{fname}.png'),
+                    path_to_script=os.path.join(image_out_dir, 'image_gen.pml'),
+                )
             if i % 100 == 0:
                 print(i, time.time() - start)
         runtime = time.time() - start
@@ -236,9 +208,10 @@ if __name__=="__main__":
                         help='path to PDB or MMCIF files')
     parser.add_argument('--pdb_id', type=str, default=None, help='single pdb id')
     parser.add_argument('--pdb_id_list_file', type=str, default=None, help='path to file containing uniprot ids')
-    parser.add_argument('--save_dir', type=str, default='Visualizations/uniprot_visualisations', help='path where results and images will be saved')
+    parser.add_argument('--save_dir', type=str, default='results/uniprot_visualisations', help='path where results and images will be saved')
     parser.add_argument('--remove_disordered_domain_threshold', type=float, default=0.35,
                         help='if the domain is less than this fraction secondary structure, it will be removed')
+    parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true', help='whether to generate pymol images')
     args = parser.parse_args()
     main(args, secondary_structure=True)
 
