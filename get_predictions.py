@@ -196,7 +196,7 @@ def main(args):
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_dir', type=str, default='outputs/rev_rec1_b1/version_2',
+    parser.add_argument('--model_dir', type=str, default='saved_models/ss_control/version_1',
                         help='path to model directory must contain model.pt and config.json')
     parser.add_argument('--uniprot_id', type=str, default=None, help='single uniprot id')
     parser.add_argument('--uniprot_id_list_file', type=str, default=None,
@@ -207,7 +207,7 @@ if __name__=="__main__":
                         help='path to PDB or MMCIF files')
     parser.add_argument('--pdb_id', type=str, default=None, help='single pdb id')
     parser.add_argument('--pdb_id_list_file', type=str, default=None, help='path to file containing uniprot ids')
-    parser.add_argument('--save_dir', type=str, default='results/uniprot_visualisations', help='path where results and images will be saved')
+    parser.add_argument('--save_dir', type=str, default='results', help='path where results and images will be saved')
     parser.add_argument('--remove_disordered_domain_threshold', type=float, default=0.35,
                         help='if the domain is less than this fraction secondary structure, it will be removed')
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true', help='whether to generate pymol images')
