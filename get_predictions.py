@@ -4,14 +4,12 @@ import time
 import Bio.PDB
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
 
 
 from src.create_features.make_2d_features import calc_dist_matrix
 from src.utils import common as common_utils
 from src.factories import pairwise_predictor
 from src.utils.cif2pdb import cif2pdb
-from src.create_features.make_2d_features import make_pair_labels
 from src.create_features.secondary_structure.secondary_structure_features import renum_pdb_file, calculate_ss, make_ss_matrix
 from src.utils.pymol_3d_visuals import generate_pymol_image
 """
@@ -27,7 +25,7 @@ User can provide any of the following as an input to get predictions:
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
                                    renumber_pdbs=True, add_recycling=True, add_mask=False,
                     stride_path='/Users/judewells/bin/stride',
-                    reres_path="/Users/judewells/Documents/dataScienceProgramming/pdb-tools/pdbtools/pdb_reres.py"):
+                    reres_path="src/utils/pdb_reres.py"):
     if pdb_path.endswith(".cif"):
         pdb_path = cif2pdb(pdb_path)
     dist_matrix = get_distance(pdb_path, chain=chain)
@@ -112,6 +110,8 @@ def get_input_method(args):
         return 'uniprot_id_list_file'
     elif args.structure_directory is not None:
         return 'structure_directory'
+    elif args.structure_file is not None:
+        return 'structure_file'
     else:
         raise ValueError('No input method provided')
 
@@ -156,44 +156,43 @@ def get_predictions_from_pdb(model, pdb_path, secondary_structure=False):
     names, bounds = convert_domain_dict_strings(domain_dict[0])
     return names, bounds
 
+def predict(model, pdb_path, outer_save_dir):
+    start = time.time()
+    fname = os.path.split(pdb_path)[-1].split('.')[0]
+    save_dir = os.path.join(outer_save_dir, fname)
+    os.makedirs(save_dir, exist_ok=True)
+    x = inference_time_create_features(pdb_path, chain="A", secondary_structure=True)
+    A_hat, domain_dict, uncertainty = model.predict(x)
+    names, bounds = convert_domain_dict_strings(domain_dict[0])
+    with open(os.path.join(save_dir, f'{fname}.txt'), 'w') as f:
+        f.write(f'{names}\n{bounds}')
+    if args.pymol_visual:
+        generate_pymol_image(
+            pdb_path=pdb_path,
+            chain='A',
+            names=names,
+            bounds=bounds,
+            image_out_path=os.path.join(save_dir, f'{fname}.png'),
+            path_to_script=os.path.join('image_gen.pml'),
+        )
+    runtime = time.time() - start
+    print(f"Runtime: {round(runtime, 3)}s")
 
-def main(args, secondary_structure=False):
-    """
-
-    :param args:
-    :param secondary_structure: whether to create secondary structure features
-    :return:
-    """
-    image_out_dir = args.save_dir
+def main(args):
+    outer_save_dir = args.save_dir
     input_method = get_input_method(args)
     model = load_model(args)
-    os.makedirs(image_out_dir, exist_ok=True)
+    os.makedirs(outer_save_dir, exist_ok=True)
     if input_method == 'structure_directory':
         structure_dir = args.structure_directory
-        start = time.time()
         for i, fname in enumerate(os.listdir(structure_dir)):
-            save_dir = os.path.join(image_out_dir, fname.split('-')[1])
-            os.makedirs(save_dir, exist_ok=True)
             pdb_path = os.path.join(structure_dir, fname)
-            x = inference_time_create_features(pdb_path, chain="A", secondary_structure=secondary_structure)
-            A_hat, domain_dict, uncertainty = model.predict(x)
-            names, bounds = convert_domain_dict_strings(domain_dict[0])
-            with open(os.path.join(save_dir, f'{fname}.txt'), 'w') as f:
-                f.write(f'{names}\n{bounds}')
-            if args.pymol_visual:
-                generate_pymol_image(
-                    pdb_path=os.path.join(structure_dir, fname),
-                    chain='A',
-                    names=names,
-                    bounds=bounds,
-                    image_out_path=os.path.join(save_dir, f'{fname}.png'),
-                    path_to_script=os.path.join(image_out_dir, 'image_gen.pml'),
-                )
-            if i % 100 == 0:
-                print(i, time.time() - start)
-        runtime = time.time() - start
-        print(runtime)
-        print(len(os.listdir(structure_dir)))
+            predict(model, pdb_path, outer_save_dir)
+    elif input_method == 'structure_file':
+        predict(model, args.structure_file, outer_save_dir)
+    else:
+        raise NotImplementedError('Not implemented yet')
+
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
@@ -213,5 +212,5 @@ if __name__=="__main__":
                         help='if the domain is less than this fraction secondary structure, it will be removed')
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true', help='whether to generate pymol images')
     args = parser.parse_args()
-    main(args, secondary_structure=True)
+    main(args)
 

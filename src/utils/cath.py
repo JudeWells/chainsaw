@@ -266,7 +266,7 @@ def domain_classification():
 
     http://cathdb.info/wiki/doku/?id=faq
 
-    and the README file for domain-list
+    and the README.md file for domain-list
     """
     records = []
     with open(DOMAIN_CLASSIFICATIONS, "r") as f:
