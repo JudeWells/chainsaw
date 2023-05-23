@@ -21,6 +21,7 @@ casp_test_fasta/
 **.ipynb_checkpoints
 data/domain_scanning/
 src/benchmark/sword/cluster_af_preds/
+chainsaw_env/
 experiments/cath_annotated_alphafold/reformatted_cath_annotations.csv
 experiments/cath_annotated_alphafold/assignment.table
 src/benchmark/sword/sword1_fb_preds/
@@ -78,3 +79,4 @@ experiments/ss_vis/
 src/benchmark/unidoc/casp14_pdb_preds/
 src/benchmark/unidoc/casp6_pdb_preds/
 src/benchmark/UniDoc/
+results/
