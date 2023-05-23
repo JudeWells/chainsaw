@@ -1,0 +1,56 @@
+{
+    "experiment_name": "secondary_structure",
+    "experiment_group": "filtered_splits",
+    "lr": 0.0005,
+    "weight_decay": 0.001,
+    "val_freq": 1,
+    "epochs": 80,
+    "accumulation_steps": 16,
+    "data": {
+        "crop_size": null,
+        "crop_type": null,
+        "batch_size": 1,
+        "feature_dir": "/mnt/disk2/domdet/features/nopae/2d_features_ss",
+        "label_dir": "/mnt/disk2/domdet/features/nopae/pairwise",
+        "chains_csv": null,
+        "evaluate_test": false,
+        "eval_casp_10_plus": false,
+        "splits_file": "splits_multi.json",
+        "validation_splits": [
+            "filt_val",
+            "filt_val_multi",
+            "filt_val_many"
+        ],
+        "remove_missing_residues": false,
+        "using_alphafold_features": false,
+        "recycling": true,
+        "add_padding_mask": false,
+        "training_exclusion_json": null,
+        "multi_proportion": 0.65,
+        "train_ids": null,
+        "exclude_cath_test": false
+    },
+    "learner": {
+        "model": {
+            "type": "trrosetta",
+            "kwargs": {
+                "filters": 32,
+                "kernel": 3,
+                "num_layers": 31,
+                "in_channels": 5
+            }
+        },
+        "assignment": {
+            "type": "sparse_lowrank",
+            "kwargs": {
+                "N_iters": 3,
+                "K_init": 4,
+                "linker_threshold": 20
+            }
+        },
+        "max_recycles": 1,
+        "save_val_best": true,
+        "x_has_padding_mask": false
+    },
+    "num_trainable_params": 577889
+}
