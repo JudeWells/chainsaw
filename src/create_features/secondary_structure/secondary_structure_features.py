@@ -41,8 +41,8 @@ def make_ss_matrix(ss_path, nres):
             break
     return helix, strand
 
-def renum_pdb_file(pdb_path, reres_path, output_pdb_path):
-    result = subprocess.run(['python', reres_path, pdb_path],
+def renum_pdb_file(pdb_path, output_pdb_path):
+    result = subprocess.run(['python', "src/utils/pdb_reres.py", pdb_path],
                             capture_output=True, text=True)
     output = result.stdout
     with open(output_pdb_path, "w") as output_file:
@@ -71,22 +71,3 @@ def main(chain_ids, pdb_dir, feature_dir, stride_path, reres_path, savedir, job_
         except Exception as e:
             with open(os.path.join(savedir, 'error.txt'), 'a') as f:
                 f.write(chain_id + str(e) + '\n')
-
-if __name__=="__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('index', type=int, help='job index')
-    batch_size = 1000
-    args = parser.parse_args()
-    job_index = args.index -1
-    with open('/SAN/bioinf/domdet/domdet/src/create_features/secondary_structure/files.txt', 'r') as f:
-        files = f.readlines()
-    files = files[job_index*batch_size:(job_index+1)*batch_size]
-    chain_ids = [f[:5] for f in files]
-    # reres_path = "/Users/judewells/Documents/dataScienceProgramming/pdb-tools/pdbtools/pdb_reres.py"
-    stride_path = '/SAN/bioinf/domdet/domdet/src/benchmark/UniDoc/bin/stride'
-    reres_path = "/SAN/bioinf/domdet/pdb-tools/pdbtools/pdb_reres.py"
-    pdb_dir = '/SAN/bioinf/domdet/features/nopae/cath'
-    # output_pdb_path pdb_dir = 'features/nopae/cath'
-    savedir = '/SAN/bioinf/domdet/features/secondary_structure'
-    feature_dir = '/SAN/bioinf/domdet/features/nopae/2d_features'
-    main(chain_ids, pdb_dir, feature_dir, stride_path, reres_path, savedir, job_index)

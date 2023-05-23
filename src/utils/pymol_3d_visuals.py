@@ -7,7 +7,7 @@ import glob
 from src.utils.common import execute_bash_command
 
 
-def generate_pymol_image(pdb_path, chain, names, bounds, image_out_path, path_to_script):
+def generate_pymol_image(pdb_path, chain, names, bounds, image_out_path, path_to_script, pymol_executable='pymol'):
     """
     PyMol can only be called via command line, this script generates
     a pymol file which describes how one protein should be visualized
@@ -46,25 +46,6 @@ color white, structure_id\n"""
     script_text += f"png {image_out_path}, ray=1, width=20cm, dpi=300,\n"
     with open(path_to_script, 'w') as filehandle:
         filehandle.write(script_text)
-    bash_command = f"/Applications/PyMOL.app/Contents/MacOS/PyMOL -c {path_to_script}"
+    bash_command = f"{pymol_executable} -c {path_to_script}"
     status = execute_bash_command(bash_command)
 
-# def generate_3d_pymol_image(filepath, domain_boundaries, outdir):
-#
-#     pass
-
-
-if __name__=="__main__":
-    df = pd.read_csv('../../casp_10_11_12_13_14_w_sifts.csv')
-    pdb_dir = '../../features/casp_data/targets'
-    path_to_script  = os.path.join(os.getcwd(), 'image_gen.pml')
-    for i, row in df.iterrows():
-        try:
-            pdb_path = glob.glob(f"{pdb_dir}/*/{row.casp_id}.pdb")[0]
-        except:
-            continue
-        if not os.path.exists(pdb_path):
-            continue
-        path_to_script = os.path.join(os.getcwd(), row.casp_id + '_' + 'image_gen.pml')
-        filepath = row.casp_id +'_' + row.dom_bounds_pdb_ix + '.png'
-        generate_pymol_image(pdb_path, None, row.dom_names, row.dom_bounds_pdb_ix, filepath, path_to_script)

@@ -21,11 +21,14 @@ User can provide any of the following as an input to get predictions:
     - a list of pdb ids (alphafold model will be downloaded and parsed)
     - a path to a directory with PDBs or MMCIF files
 """
+stride_executable = "/Users/judewells/bin/stride"
+pymol_executable = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
+
+
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
                                    renumber_pdbs=True, add_recycling=True, add_mask=False,
-                    stride_path='/Users/judewells/bin/stride',
-                    reres_path="src/utils/pdb_reres.py"):
+                    stride_path=stride_executable):
     if pdb_path.endswith(".cif"):
         pdb_path = cif2pdb(pdb_path)
     dist_matrix = get_distance(pdb_path, chain=chain)
@@ -40,7 +43,7 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
     else:
         if renumber_pdbs:
             output_pdb_path = pdb_path.replace('.pdb', '_renum.pdb').replace('.cif', '_renum.cif')
-            renum_pdb_file(pdb_path, reres_path, output_pdb_path)
+            renum_pdb_file(pdb_path, output_pdb_path)
         else:
             output_pdb_path = pdb_path
         ss_filepath = pdb_path.replace('.pdb', '_ss.txt').replace('.cif', '_ss.txt')
@@ -173,7 +176,8 @@ def predict(model, pdb_path, outer_save_dir):
             names=names,
             bounds=bounds,
             image_out_path=os.path.join(save_dir, f'{fname}.png'),
-            path_to_script=os.path.join('image_gen.pml'),
+            path_to_script=os.path.join(outer_save_dir, 'image_gen.pml'),
+            pymol_executable=pymol_executable
         )
     runtime = time.time() - start
     print(f"Runtime: {round(runtime, 3)}s")
@@ -196,7 +200,7 @@ def main(args):
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_dir', type=str, default='saved_models/ss_control/version_1',
+    parser.add_argument('--model_dir', type=str, default='saved_models/secondary_structure_epoch17/version_2',
                         help='path to model directory must contain model.pt and config.json')
     parser.add_argument('--uniprot_id', type=str, default=None, help='single uniprot id')
     parser.add_argument('--uniprot_id_list_file', type=str, default=None,
