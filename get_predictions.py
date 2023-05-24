@@ -1,10 +1,27 @@
-import os
-import argparse
-import time
-import Bio.PDB
-import numpy as np
-import torch
+"""
+Script for running Chainsaw
 
+Created by: Jude Wells 2023-04-19
+
+User can provide any of the following as an input to get predictions:
+    - a single uniprot id (alphafold model will be downloaded and parsed)
+    - a list of uniprot ids (alphafold model will be downloaded and parsed)
+    - a list of pdb ids (alphafold model will be downloaded and parsed)
+    - a path to a directory with PDBs or MMCIF files
+"""
+
+import argparse
+import csv
+import logging
+import numpy as np
+import os
+from pathlib import Path
+import sys
+import time
+import torch
+from typing import List 
+
+import Bio.PDB
 
 from src.create_features.make_2d_features import calc_dist_matrix
 from src.utils import common as common_utils
