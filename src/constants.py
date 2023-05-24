@@ -1,7 +1,8 @@
+from pathlib import Path
 import os
 
 
-BASEDIR = os.path.dirname(os.path.dirname(__file__))
+BASEDIR = str(Path(__file__).parent.parent.resolve())
 IS_HPC = os.environ.get("CHAINSAW_ENV", None) == "hpc"
 if IS_HPC:
     DATA_DIR = "/SAN/bioinf/domdet"
