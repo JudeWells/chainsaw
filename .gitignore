@@ -13,5 +13,6 @@ experiments/cath_annotated_alphafold/assignment.table
 *.csv
 results/
 venv/
-stride/
+stride/*
+!stride/README_stride.txt
 !stride/stride.tgz
