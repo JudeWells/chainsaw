@@ -12,6 +12,9 @@ import logging
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB import PDBIO
 
+import logging
+LOG = logging.getLogger(__name__)
+
 
 def int_to_chain(i, base=62):
     """

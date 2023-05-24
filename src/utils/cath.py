@@ -45,10 +45,12 @@ import numpy as np
 import pandas as pd
 import torch
 import urllib
+import logging
 
 from src.utils.torch_utils import get_ids
 from src.utils import pdbio
 
+LOG = logging.getLogger(__name__)
 
 ESM_CATH_SPLIT = "https://dl.fbaipublicfiles.com/fair-esm/data/cath4.3_topologysplit_202206/splits.json"
 DOMAIN_BOUNDARIES = "data/cath/cath-domain-boundaries.txt"   # annotations of domains to chains
@@ -240,7 +242,7 @@ def cath_split_ids(
 
     if exclude_missing_feats:
         featurised_chain_ids = set([c.replace(".npz", "") for c in get_ids(feature_dir=feature_dir, label_dir=label_dir)])
-        print(list(featurised_chain_ids)[:10])
+        LOG.info(list(featurised_chain_ids)[:10])
 
     featurised_split_ids = {}
     msg = ""
@@ -256,7 +258,7 @@ def cath_split_ids(
         # we get random orderings irrespective of seeding unless we do this.
         featurised_split_ids[split_name] = sorted(split_ids)
 
-    print(msg)
+    LOG.info(msg)
 
     return featurised_split_ids
 

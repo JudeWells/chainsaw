@@ -29,18 +29,12 @@ from src.factories import pairwise_predictor
 from src.utils.cif2pdb import cif2pdb
 from src.create_features.secondary_structure.secondary_structure_features import renum_pdb_file, calculate_ss, make_ss_matrix
 from src.utils.pymol_3d_visuals import generate_pymol_image
-"""
-Created by: Jude Wells 2023-04-19
-Script for running Chainsaw
-User can provide any of the following as an input to get predictions:
-    - a single uniprot id (alphafold model will be downloaded and parsed)
-    - a list of uniprot ids (alphafold model will be downloaded and parsed)
-    - a list of pdb ids (alphafold model will be downloaded and parsed)
-    - a path to a directory with PDBs or MMCIF files
-"""
-stride_executable = "/Users/judewells/bin/stride"
-pymol_executable = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
 
+LOG = logging.getLogger(__name__)
+REPO_ROOT = Path(__file__).parent.resolve()
+STRIDE_EXE = os.environ.get('STRIDE_EXE', str(REPO_ROOT / "stride" / "stride"))
+PYMOL_EXE = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
+OUTPUT_COLNAMES = ['chain_id', 'domain_id', 'chopping', 'uncertainty']
 
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
@@ -68,7 +62,7 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
         helix, strand = make_ss_matrix(ss_filepath, nres=dist_matrix.shape[-1])
         os.remove(output_pdb_path)
         os.remove(ss_filepath)
-    print(f"Distance matrix shape: {dist_matrix.shape}, SS matrix shape: {helix.shape}")
+    LOG.info(f"Distance matrix shape: {dist_matrix.shape}, SS matrix shape: {helix.shape}")
     stacked_features = np.stack((dist_matrix[0], helix, strand), axis=0)
     if add_recycling:
         recycle_dimensions = np.zeros([2, n_res, n_res]).astype(np.float32)

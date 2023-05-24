@@ -4,6 +4,9 @@ import subprocess
 import numpy as np
 import argparse
 
+import logging
+LOG = logging.getLogger(__name__)
+
 """
 Created by Jude Wells 2023-04-20
 Objective is to create a secondary structure matrix for each protein
@@ -17,7 +20,7 @@ Objective is to create a secondary structure matrix for each protein
 def calculate_ss(pdbfile, chain, stride_path, ssfile='pdb_ss'):
     assert os.path.exists(pdbfile)
     command = '%s %s -r%s>%s'%(stride_path,pdbfile,chain,ssfile)
-    print(f"Running command: {command}")
+    LOG.info(f"Running command: {command}")
     return os.system(command)
 
 def make_ss_matrix(ss_path, nres):
@@ -57,7 +60,7 @@ def main(chain_ids, pdb_dir, feature_dir, stride_path, reres_path, savedir, job_
             if os.path.exists(pdb_path):
                 features = np.load(os.path.join(feature_dir, chain_id + '.npz'))['arr_0']
                 nres = features.shape[-1]
-                print("Processing", pdb_path)
+                LOG.info("Processing", pdb_path)
                 chain = chain_id[4]
                 output_pdb_path = os.path.join(savedir, f"{job_index}.pdb") # this gets overwritten to save memory
                 file_nres = renum_pdb_file(pdb_path, reres_path, output_pdb_path)

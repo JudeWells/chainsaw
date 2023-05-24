@@ -7,6 +7,10 @@ import os
 
 import pandas as pd
 import torch
+
+import logging
+LOG = logging.getLogger(__name__)
+
 from src import constants, factories
 from src.domain_chop import PairwiseDomainPredictor
 from src.loggers import get_versioned_dir
@@ -40,7 +44,7 @@ def pairwise_predictor(learner_config, force_cpu=False, output_dir=None):
     device = get_torch_device(force_cpu=force_cpu)
     model.to(device)
     kwargs = {k: v for k, v in learner_config.items() if k not in ["model", "assignment"]}
-    print("Learner kwargs", kwargs, flush=True)
+    LOG.info(f"Learner kwargs: {kwargs}")
     return PairwiseDomainPredictor(model, assigner, device, checkpoint_dir=output_dir, **kwargs)
 
 

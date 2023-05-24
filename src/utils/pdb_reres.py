@@ -35,6 +35,10 @@ effort to maintain and compile. RIP.
 import os
 import sys
 
+import logging
+LOG = logging.getLogger(__name__)
+
+
 __author__ = "Joao Rodrigues"
 __email__ = "j.p.g.l.m.rodrigues@gmail.com"
 

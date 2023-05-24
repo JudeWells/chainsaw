@@ -1,6 +1,8 @@
 import glob
 import os
 
+import logging
+LOG = logging.getLogger(__name__)
 
 def get_versioned_dir(output_dir, version=None, resume=False):
     """version gets dir for specific version, resume gets dir for last version."""
@@ -68,19 +70,17 @@ class StdOutLogger:
 
             train_metric_components = [f"{m}: {v:.3f} " for m, v in metrics.items() if not m.startswith("val_")]
             if train_metric_components:
-                print(
+                LOG.info(
                     header
                     + "  ".join(train_metric_components),
-                    flush=True,
                 )
             val_metric_components = [f"{m}: {v:.3f} " for m, v in metrics.items() if m.startswith("val_")]
             if val_metric_components:
-                print(
+                LOG.info(
                     "  ".join(val_metric_components),
-                flush=True,
                 )
             if batch is None:
-                print("--------------------------------------\n")
+                LOG.info("--------------------------------------\n")
 
 
 class CSVLogger:
@@ -101,7 +101,7 @@ class CSVLogger:
         if epoch == 0:
             self.val_keys = metrics.keys()
         elif self.output_dir is not None and epoch > 0:
-            # print([k for k in metrics.keys() if k not in self._prev_keys])
+            # LOG.info([k for k in metrics.keys() if k not in self._prev_keys])
             extra_keys = [k for k in self.val_keys if k not in metrics and k != "epoch"]
             os.makedirs(self.output_dir, exist_ok=True)
             log_epoch_metrics(

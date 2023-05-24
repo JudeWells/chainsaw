@@ -15,6 +15,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from Bio.PDB import PDBParser, PDBIO
 
+import logging
+LOG = logging.getLogger(__name__)
+
 from src.create_features.make_2d_features import get_up_distance_and_plddt, reshape_distance_matrix, create_mapping,\
     MISSING_UP_IX, fetch_missing_pdb_res_ix, fetch_alphafold_pdb, make_pair_labels, make_domain_mapping_dict
 
@@ -60,7 +63,7 @@ def trim_alphafold_pdb_to_match_pdb(row, mapping_dict, pdb_dir, alphafold_struct
     if not os.path.exists(alphafold_filepath):
         fetch_status = fetch_alphafold_pdb(up_id, alphafold_structure_dir)
         if fetch_status != "success":
-            print(f"Failed to fetch {up_id}")
+            LOG.error(f"Failed to fetch {up_id}")
             return
     remove_residues_by_index(alphafold_filepath, trimmed_filepath, residues_to_remove)
     return trimmed_filepath
@@ -95,7 +98,7 @@ if __name__=="__main__":
                 mapping_dict[miss_res] = MISSING_UP_IX
             non_aligned = [k for k, v in mapping_dict.items() if v == MISSING_UP_IX]
             if len(non_aligned) / len(mapping_dict) > 1 - min_coverage_threshold:
-                print(f"Skipping {up_id} due to low coverage")
+                LOG.warning(f"Skipping {up_id} due to low coverage")
                 continue
             dist_matrix, plddt = get_up_distance_and_plddt(row, id_col='uniprot_id', pdb_dir=alphafold_structure_dir, return_plddt=True)
             nres_uniprot = dist_matrix.shape[0]
@@ -115,8 +118,8 @@ if __name__=="__main__":
             np.savez_compressed(os.path.join(new_features_dir, f"{up_id}.npz"), np.stack(stacked_features))
             np.savez_compressed(os.path.join(new_label_dir, f"{up_id}.npz"), labels)
         except Exception as e:
-            print(f"Failed to process {up_id}")
-            print(e)
+            LOG.error(f"Failed to process {up_id}")
+            LOG.error(e)
     new_df = pd.DataFrame(new_rows)
     new_df.to_csv(os.path.join(output_dir, "alphafold_features_for_facebook_test.csv"), index=False)
 
