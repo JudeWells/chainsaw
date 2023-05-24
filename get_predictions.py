@@ -125,7 +125,7 @@ def get_input_method(args):
     if number_of_input_methods != 1:
         raise ValueError('Exactly one input method must be provided')
     if args.uniprot_id is not None:
-            return 'uniprot_id'
+        return 'uniprot_id'
     elif args.uniprot_id_list_file is not None:
         return 'uniprot_id_list_file'
     elif args.structure_directory is not None:
