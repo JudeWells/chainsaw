@@ -218,9 +218,25 @@ def predict(model, pdb_path) -> List[PredictionResult]:
     LOG.info(f"Runtime: {round(runtime, 3)}s")
     return prediction_results
 
-    with open(os.path.join(save_dir, f'{fname}.txt'), 'w') as f:
-        f.write(f'{names}\n{bounds}')
-    if args.pymol_visual:
+
+def write_pymol_script(results: List[PredictionResult], 
+                       save_dir: Path,
+                       default_chain_id="A"):
+
+    # group the results by pdb_path
+    results_by_pdb_path = {}
+    for result in results:
+        if result.name not in results_by_pdb_path:
+            results_by_pdb_path[result.name] = []
+        results_by_pdb_path[result.name].append(result)
+
+    for pdb_path, results in results_by_pdb_path.items():
+
+        names = "|".join([result.domain_id for result in results])
+        bounds = "|".join([result.chopping for result in results])
+        fname = Path(pdb_path).stem
+
+        LOG.info(f"Generating pymol script for {fname} ({len(results)} domains: {bounds})")
         generate_pymol_image(
             pdb_path=pdb_path,
             chain=default_chain_id,
