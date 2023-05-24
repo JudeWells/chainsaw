@@ -36,6 +36,12 @@ STRIDE_EXE = os.environ.get('STRIDE_EXE', str(REPO_ROOT / "stride" / "stride"))
 PYMOL_EXE = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
 OUTPUT_COLNAMES = ['chain_id', 'domain_id', 'chopping', 'uncertainty']
 
+def setup_logging():
+    # log all messages to stderr so results can be sent to stdout
+    logging.basicConfig(level=logging.INFO,
+                    stream=sys.stderr,
+                    format='%(asctime)s | %(levelname)s | %(message)s', 
+                    datefmt='%m/%d/%Y %I:%M:%S %p')
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
                                    renumber_pdbs=True, add_recycling=True, add_mask=False,
