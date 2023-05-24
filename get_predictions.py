@@ -176,49 +176,109 @@ def get_predictions_from_pdb(model, pdb_path, secondary_structure=False):
     names, bounds = convert_domain_dict_strings(domain_dict[0])
     return names, bounds
 
-def predict(model, pdb_path, outer_save_dir):
+class PredictionResult:
+    def __init__(self, pdb_path: Path, domain_id: str, chopping: str, uncertainty: float, chain_id: str = None):
+        self.pdb_path = Path(str(pdb_path)).resolve()
+        if chain_id is None:
+            chain_id = self.pdb_path.stem
+        self.chain_id = str(chain_id)
+        self.domain_id = str(domain_id)
+        self.chopping = str(chopping)
+        self.uncertainty = float(uncertainty)
+
+    def asdict(self):
+        return {
+            "pdb_path": self.pdb_path,
+            "chain_id": self.chain_id,
+            "domain_id": self.domain_id,
+            "chopping": self.chopping,
+            "uncertainty": self.uncertainty,
+        }
+
+def predict(model, pdb_path) -> List[PredictionResult]:
+    """
+    Makes the prediction and returns a list of PredictionResult objects
+    """
     start = time.time()
-    fname = os.path.split(pdb_path)[-1].split('.')[0]
-    save_dir = os.path.join(outer_save_dir, fname)
-    os.makedirs(save_dir, exist_ok=True)
     x = inference_time_create_features(pdb_path, chain="A", secondary_structure=True)
-    A_hat, domain_dict, uncertainty = model.predict(x)
+    A_hat, domain_dict, uncertainty_array = model.predict(x)
     names, bounds = convert_domain_dict_strings(domain_dict[0])
+    uncertainty = uncertainty_array[0]
+
+    # return a list of PredictionResult objects
+    prediction_results = []
+    for domain_id, chopping in zip(names.split('|'), bounds.split('|')):
+        result = PredictionResult(pdb_path=pdb_path, 
+                                  domain_id=domain_id, 
+                                  chopping=chopping, 
+                                  uncertainty=uncertainty)
+        prediction_results.append(result)
+
+    runtime = time.time() - start
+    LOG.info(f"Runtime: {round(runtime, 3)}s")
+    return prediction_results
+
     with open(os.path.join(save_dir, f'{fname}.txt'), 'w') as f:
         f.write(f'{names}\n{bounds}')
     if args.pymol_visual:
         generate_pymol_image(
             pdb_path=pdb_path,
-            chain='A',
+            chain=default_chain_id,
             names=names,
             bounds=bounds,
-            image_out_path=os.path.join(save_dir, f'{fname}.png'),
-            path_to_script=os.path.join(outer_save_dir, 'image_gen.pml'),
-            pymol_executable=pymol_executable
+            image_out_path=os.path.join(str(save_dir), f'{fname}.png'),
+            path_to_script=os.path.join(str(save_dir), 'image_gen.pml'),
+            pymol_executable=PYMOL_EXE
         )
-    runtime = time.time() - start
-    print(f"Runtime: {round(runtime, 3)}s")
+
+
+def write_csv_results(csv_writer, prediction_results: List[PredictionResult], include_header=False):
+    """
+    Render list of PredictionResult results to file pointer
+    """
+    for res in prediction_results:
+        row = res.asdict()
+        csv_writer.writerow(row)
 
 def main(args):
+
     outer_save_dir = args.save_dir
     input_method = get_input_method(args)
-    model = load_model(args)
+    model = load_model(
+        model_dir=args.model_dir, 
+        remove_disordered_domain_threshold=args.remove_disordered_domain_threshold)
     os.makedirs(outer_save_dir, exist_ok=True)
-    if input_method == 'structure_directory':
-        structure_dir = args.structure_directory
-        for i, fname in enumerate(os.listdir(structure_dir)):
-            pdb_path = os.path.join(structure_dir, fname)
-            predict(model, pdb_path, outer_save_dir)
-    elif input_method == 'structure_file':
-        predict(model, args.structure_file, outer_save_dir)
-    else:
-        raise NotImplementedError('Not implemented yet')
+
+    prediction_results = []
+    with args.output as fp:
+        csv_writer = csv.DictWriter(fp, fieldnames=OUTPUT_COLNAMES, delimiter='\t')
+        csv_writer.writeheader()
+        if input_method == 'structure_directory':
+            structure_dir = args.structure_directory
+            for idx, fname in enumerate(os.listdir(structure_dir)):
+                pdb_path = os.path.join(structure_dir, fname)
+                _results = predict(model, pdb_path)
+                prediction_results.extend(_results)
+                write_csv_results(csv_writer, _results, include_header=(idx==0))
+        elif input_method == 'structure_file':
+            prediction_results = predict(model, args.structure_file)
+            write_csv_results(csv_writer, prediction_results, include_header=True)
+        else:
+            raise NotImplementedError('Not implemented yet')
+
+    if args.pymol_visual:
+        write_pymol_script(results=prediction_results, save_dir=outer_save_dir)
 
 
-if __name__=="__main__":
+def parse_args():
+    """
+    Parse command line arguments    
+    """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_dir', type=str, default='saved_models/secondary_structure_epoch17/version_2',
+    parser.add_argument('--model_dir', type=str, default=f'{REPO_ROOT}/saved_models/secondary_structure_epoch17/version_2',
                         help='path to model directory must contain model.pt and config.json')
+    parser.add_argument('--output', '-o', type=argparse.FileType('w'), default='-',
+                        help='write results to this file (default: stdout)')
     parser.add_argument('--uniprot_id', type=str, default=None, help='single uniprot id')
     parser.add_argument('--uniprot_id_list_file', type=str, default=None,
                         help='path to file containing uniprot ids')
@@ -233,5 +293,10 @@ if __name__=="__main__":
                         help='if the domain is less than this fraction secondary structure, it will be removed')
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true', help='whether to generate pymol images')
     args = parser.parse_args()
-    main(args)
+    return args
+
+if __name__=="__main__":
+    # note: any variables created here will be global (bad)
+    setup_logging()
+    main(parse_args())
 
