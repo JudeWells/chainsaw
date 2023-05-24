@@ -267,7 +267,7 @@ def main(args):
 
     prediction_results = []
     with args.output as fp:
-        csv_writer = csv.DictWriter(fp, fieldnames=OUTPUT_COLNAMES, delimiter='\t')
+        csv_writer = csv.DictWriter(fp, fieldnames=OUTPUT_COLNAMES, delimiter='\t', extrasaction='ignore')
         csv_writer.writeheader()
         if input_method == 'structure_directory':
             structure_dir = args.structure_directory
