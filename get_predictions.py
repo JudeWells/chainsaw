@@ -45,7 +45,7 @@ def setup_logging():
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
                                    renumber_pdbs=True, add_recycling=True, add_mask=False,
-                    stride_path=stride_executable):
+                    stride_path=STRIDE_EXE):
     if pdb_path.endswith(".cif"):
         pdb_path = cif2pdb(pdb_path)
     dist_matrix = get_distance(pdb_path, chain=chain)
