@@ -2,10 +2,14 @@ import os
 import re
 import subprocess
 import numpy as np
+from pathlib import Path
 import argparse
 
+from src.constants import BASEDIR
 import logging
 LOG = logging.getLogger(__name__)
+
+
 
 """
 Created by Jude Wells 2023-04-20
@@ -19,9 +23,13 @@ Objective is to create a secondary structure matrix for each protein
 
 def calculate_ss(pdbfile, chain, stride_path, ssfile='pdb_ss'):
     assert os.path.exists(pdbfile)
-    command = '%s %s -r%s>%s'%(stride_path,pdbfile,chain,ssfile)
-    LOG.info(f"Running command: {command}")
-    return os.system(command)
+    with open(ssfile, 'w') as ssout_file:
+        args = [stride_path, pdbfile, '-r' + chain]
+        LOG.info(f"Running command: {' '.join(args)}")
+        subprocess.run(args, 
+                       stdout=ssout_file, 
+                       stderr=subprocess.DEVNULL, 
+                       check=True)
 
 def make_ss_matrix(ss_path, nres):
     # create matrices for helix and strad residues where entry ij = 1 if i and j are in the same helix or strand
@@ -45,12 +53,13 @@ def make_ss_matrix(ss_path, nres):
     return helix, strand
 
 def renum_pdb_file(pdb_path, output_pdb_path):
-    result = subprocess.run(['python', "src/utils/pdb_reres.py", pdb_path],
-                            capture_output=True, text=True)
-    output = result.stdout
+    pdb_reres_path = Path(BASEDIR) / 'src/utils/pdb_reres.py'
     with open(output_pdb_path, "w") as output_file:
-        output_file.write(output)
-
+        subprocess.run(['python', str(pdb_reres_path), pdb_path],
+                       stdout=output_file,
+                       check=True,
+                       text=True)
+ 
 def main(chain_ids, pdb_dir, feature_dir, stride_path, reres_path, savedir, job_index=0):
     os.makedirs(savedir, exist_ok=True)
     os.makedirs(os.path.join(savedir, '2d_features'), exist_ok=True)
