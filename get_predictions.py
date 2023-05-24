@@ -29,6 +29,7 @@ from src.factories import pairwise_predictor
 from src.utils.cif2pdb import cif2pdb
 from src.create_features.secondary_structure.secondary_structure_features import renum_pdb_file, calculate_ss, make_ss_matrix
 from src.utils.pymol_3d_visuals import generate_pymol_image
+from src.models.results import PredictionResult
 
 LOG = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).parent.resolve()
@@ -176,24 +177,6 @@ def get_predictions_from_pdb(model, pdb_path, secondary_structure=False):
     names, bounds = convert_domain_dict_strings(domain_dict[0])
     return names, bounds
 
-class PredictionResult:
-    def __init__(self, pdb_path: Path, domain_id: str, chopping: str, uncertainty: float, chain_id: str = None):
-        self.pdb_path = Path(str(pdb_path)).resolve()
-        if chain_id is None:
-            chain_id = self.pdb_path.stem
-        self.chain_id = str(chain_id)
-        self.domain_id = str(domain_id)
-        self.chopping = str(chopping)
-        self.uncertainty = float(uncertainty)
-
-    def asdict(self):
-        return {
-            "pdb_path": self.pdb_path,
-            "chain_id": self.chain_id,
-            "domain_id": self.domain_id,
-            "chopping": self.chopping,
-            "uncertainty": self.uncertainty,
-        }
 
 def predict(model, pdb_path) -> List[PredictionResult]:
     """
@@ -202,13 +185,18 @@ def predict(model, pdb_path) -> List[PredictionResult]:
     start = time.time()
     x = inference_time_create_features(pdb_path, chain="A", secondary_structure=True)
     A_hat, domain_dict, uncertainty_array = model.predict(x)
-    names, bounds = convert_domain_dict_strings(domain_dict[0])
+    names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
     uncertainty = uncertainty_array[0]
+
+    names = names_str.split('|')
+    bounds = bounds_str.split('|')
+
+    assert len(names) == len(bounds)
 
     # return a list of PredictionResult objects
     prediction_results = []
-    for domain_id, chopping in zip(names.split('|'), bounds.split('|')):
-        result = PredictionResult(pdb_path=pdb_path, 
+    for domain_id, chopping in zip(names, bounds):
+        result = PredictionResult(pdb_path=pdb_path,
                                   domain_id=domain_id, 
                                   chopping=chopping, 
                                   uncertainty=uncertainty)
@@ -248,13 +236,25 @@ def write_pymol_script(results: List[PredictionResult],
         )
 
 
-def write_csv_results(csv_writer, prediction_results: List[PredictionResult], include_header=False):
+def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
     """
     Render list of PredictionResult results to file pointer
     """
     for res in prediction_results:
-        row = res.asdict()
+        row = {
+            'chain_id': res.chain_id,
+            'domain_id': res.domain_id,
+            'chopping': res.chopping,
+            'uncertainty': f'{res.uncertainty:.3g}',
+        }
         csv_writer.writerow(row)
+
+def get_csv_writer(file_pointer):
+    csv_writer = csv.DictWriter(file_pointer, 
+                                fieldnames=OUTPUT_COLNAMES, 
+                                delimiter='\t')
+    return csv_writer
+
 
 def main(args):
 
@@ -266,21 +266,20 @@ def main(args):
     os.makedirs(outer_save_dir, exist_ok=True)
 
     prediction_results = []
-    with args.output as fp:
-        csv_writer = csv.DictWriter(fp, fieldnames=OUTPUT_COLNAMES, delimiter='\t', extrasaction='ignore')
-        csv_writer.writeheader()
-        if input_method == 'structure_directory':
-            structure_dir = args.structure_directory
-            for idx, fname in enumerate(os.listdir(structure_dir)):
-                pdb_path = os.path.join(structure_dir, fname)
-                _results = predict(model, pdb_path)
-                prediction_results.extend(_results)
-                write_csv_results(csv_writer, _results, include_header=(idx==0))
-        elif input_method == 'structure_file':
-            prediction_results = predict(model, args.structure_file)
-            write_csv_results(csv_writer, prediction_results, include_header=True)
-        else:
-            raise NotImplementedError('Not implemented yet')
+    csv_writer = get_csv_writer(args.output)
+    csv_writer.writeheader()
+    if input_method == 'structure_directory':
+        structure_dir = args.structure_directory
+        for idx, fname in enumerate(os.listdir(structure_dir)):
+            pdb_path = os.path.join(structure_dir, fname)
+            _results = predict(model, pdb_path)
+            prediction_results.extend(_results)
+            write_csv_results(csv_writer, _results)
+    elif input_method == 'structure_file':
+        prediction_results = predict(model, args.structure_file)
+        write_csv_results(csv_writer, prediction_results)
+    else:
+        raise NotImplementedError('Not implemented yet')
 
     if args.pymol_visual:
         write_pymol_script(results=prediction_results, save_dir=outer_save_dir)
