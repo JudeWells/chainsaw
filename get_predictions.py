@@ -135,11 +135,11 @@ def get_input_method(args):
     else:
         raise ValueError('No input method provided')
 
-def load_model(args):
-    config = common_utils.load_json(os.path.join(args.model_dir, "config.json"))
-    config["learner"]["remove_disordered_domain_threshold"] = args.remove_disordered_domain_threshold
+def load_model(*, model_dir: str, remove_disordered_domain_threshold: float):
+    config = common_utils.load_json(os.path.join(model_dir, "config.json"))
+    config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
     config["learner"]["trim_disordered"] = True
-    learner = pairwise_predictor(config["learner"], output_dir=args.model_dir)
+    learner = pairwise_predictor(config["learner"], output_dir=model_dir)
     learner.eval()
     learner.load_checkpoints()
     return learner
