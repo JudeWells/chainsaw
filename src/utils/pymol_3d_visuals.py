@@ -29,7 +29,7 @@ select target, chain {chain}
 as cartoon, target
 set ray_opaque_background,1
 color white, structure_id\n"""
-    color_list = ['green', 'red', 'cyan', 'magenta', 'blue', 'orange', 'firebrick', 'limon', 'salmon', 'deepteal', 'sand', 'purpleblue', 'black']
+    color_list = ['green', 'red', 'cyan', 'magenta', 'blue', 'orange', 'dirtyviolet', 'olive', 'limon', 'salmon', 'deepteal', 'yellow', 'sand', 'purpleblue', 'black']
     color_dict = {}
     names = names.split('|')
     bounds = bounds.split('|')

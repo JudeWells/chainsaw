@@ -159,7 +159,7 @@ def get_predictions_from_pdb(model, pdb_path, secondary_structure=False):
     names, bounds = convert_domain_dict_strings(domain_dict[0])
     return names, bounds
 
-def predict(model, pdb_path, outer_save_dir):
+def predict(model, pdb_path, outer_save_dir, pymol_visual=False):
     start = time.time()
     fname = os.path.split(pdb_path)[-1].split('.')[0]
     save_dir = os.path.join(outer_save_dir, fname)
@@ -169,7 +169,7 @@ def predict(model, pdb_path, outer_save_dir):
     names, bounds = convert_domain_dict_strings(domain_dict[0])
     with open(os.path.join(save_dir, f'{fname}.txt'), 'w') as f:
         f.write(f'{names}\n{bounds}')
-    if args.pymol_visual:
+    if pymol_visual:
         generate_pymol_image(
             pdb_path=pdb_path,
             chain='A',
