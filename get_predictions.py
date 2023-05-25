@@ -1,10 +1,27 @@
-import os
-import argparse
-import time
-import Bio.PDB
-import numpy as np
-import torch
+"""
+Script for running Chainsaw
 
+Created by: Jude Wells 2023-04-19
+
+User can provide any of the following as an input to get predictions:
+    - a single uniprot id (alphafold model will be downloaded and parsed)
+    - a list of uniprot ids (alphafold model will be downloaded and parsed)
+    - a list of pdb ids (alphafold model will be downloaded and parsed)
+    - a path to a directory with PDBs or MMCIF files
+"""
+
+import argparse
+import csv
+import logging
+import numpy as np
+import os
+from pathlib import Path
+import sys
+import time
+import torch
+from typing import List 
+
+import Bio.PDB
 
 from src.create_features.make_2d_features import calc_dist_matrix
 from src.utils import common as common_utils
@@ -12,23 +29,24 @@ from src.factories import pairwise_predictor
 from src.utils.cif2pdb import cif2pdb
 from src.create_features.secondary_structure.secondary_structure_features import renum_pdb_file, calculate_ss, make_ss_matrix
 from src.utils.pymol_3d_visuals import generate_pymol_image
-"""
-Created by: Jude Wells 2023-04-19
-Script for running Chainsaw
-User can provide any of the following as an input to get predictions:
-    - a single uniprot id (alphafold model will be downloaded and parsed)
-    - a list of uniprot ids (alphafold model will be downloaded and parsed)
-    - a list of pdb ids (alphafold model will be downloaded and parsed)
-    - a path to a directory with PDBs or MMCIF files
-"""
-stride_executable = "/Users/judewells/bin/stride"
-pymol_executable = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
+from src.models.results import PredictionResult
 
+LOG = logging.getLogger(__name__)
+REPO_ROOT = Path(__file__).parent.resolve()
+STRIDE_EXE = os.environ.get('STRIDE_EXE', str(REPO_ROOT / "stride" / "stride"))
+PYMOL_EXE = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
+OUTPUT_COLNAMES = ['chain_id', 'domain_id', 'chopping', 'uncertainty']
 
+def setup_logging():
+    # log all messages to stderr so results can be sent to stdout
+    logging.basicConfig(level=logging.INFO,
+                    stream=sys.stderr,
+                    format='%(asctime)s | %(levelname)s | %(message)s', 
+                    datefmt='%m/%d/%Y %I:%M:%S %p')
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
                                    renumber_pdbs=True, add_recycling=True, add_mask=False,
-                    stride_path=stride_executable):
+                    stride_path=STRIDE_EXE):
     if pdb_path.endswith(".cif"):
         pdb_path = cif2pdb(pdb_path)
     dist_matrix = get_distance(pdb_path, chain=chain)
@@ -51,7 +69,7 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
         helix, strand = make_ss_matrix(ss_filepath, nres=dist_matrix.shape[-1])
         os.remove(output_pdb_path)
         os.remove(ss_filepath)
-    print(f"Distance matrix shape: {dist_matrix.shape}, SS matrix shape: {helix.shape}")
+    LOG.info(f"Distance matrix shape: {dist_matrix.shape}, SS matrix shape: {helix.shape}")
     stacked_features = np.stack((dist_matrix[0], helix, strand), axis=0)
     if add_recycling:
         recycle_dimensions = np.zeros([2, n_res, n_res]).astype(np.float32)
@@ -108,7 +126,7 @@ def get_input_method(args):
     if number_of_input_methods != 1:
         raise ValueError('Exactly one input method must be provided')
     if args.uniprot_id is not None:
-            return 'uniprot_id'
+        return 'uniprot_id'
     elif args.uniprot_id_list_file is not None:
         return 'uniprot_id_list_file'
     elif args.structure_directory is not None:
@@ -118,11 +136,11 @@ def get_input_method(args):
     else:
         raise ValueError('No input method provided')
 
-def load_model(args):
-    config = common_utils.load_json(os.path.join(args.model_dir, "config.json"))
-    config["learner"]["remove_disordered_domain_threshold"] = args.remove_disordered_domain_threshold
+def load_model(*, model_dir: str, remove_disordered_domain_threshold: float):
+    config = common_utils.load_json(os.path.join(model_dir, "config.json"))
+    config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
     config["learner"]["trim_disordered"] = True
-    learner = pairwise_predictor(config["learner"], output_dir=args.model_dir)
+    learner = pairwise_predictor(config["learner"], output_dir=model_dir)
     learner.eval()
     learner.load_checkpoints()
     return learner
@@ -159,49 +177,123 @@ def get_predictions_from_pdb(model, pdb_path, secondary_structure=False):
     names, bounds = convert_domain_dict_strings(domain_dict[0])
     return names, bounds
 
-def predict(model, pdb_path, outer_save_dir):
+
+def predict(model, pdb_path) -> List[PredictionResult]:
+    """
+    Makes the prediction and returns a list of PredictionResult objects
+    """
     start = time.time()
-    fname = os.path.split(pdb_path)[-1].split('.')[0]
-    save_dir = os.path.join(outer_save_dir, fname)
-    os.makedirs(save_dir, exist_ok=True)
     x = inference_time_create_features(pdb_path, chain="A", secondary_structure=True)
-    A_hat, domain_dict, uncertainty = model.predict(x)
-    names, bounds = convert_domain_dict_strings(domain_dict[0])
-    with open(os.path.join(save_dir, f'{fname}.txt'), 'w') as f:
-        f.write(f'{names}\n{bounds}')
-    if args.pymol_visual:
+    A_hat, domain_dict, uncertainty_array = model.predict(x)
+    names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
+    uncertainty = uncertainty_array[0]
+
+    names = names_str.split('|')
+    bounds = bounds_str.split('|')
+
+    assert len(names) == len(bounds)
+
+    # return a list of PredictionResult objects
+    prediction_results = []
+    for domain_id, chopping in zip(names, bounds):
+        result = PredictionResult(pdb_path=pdb_path,
+                                  domain_id=domain_id, 
+                                  chopping=chopping, 
+                                  uncertainty=uncertainty)
+        prediction_results.append(result)
+
+    runtime = time.time() - start
+    LOG.info(f"Runtime: {round(runtime, 3)}s")
+    return prediction_results
+
+
+def write_pymol_script(results: List[PredictionResult], 
+                       save_dir: Path,
+                       default_chain_id="A"):
+
+    # group the results by pdb_path
+    results_by_pdb_path = {}
+    for result in results:
+        if result.name not in results_by_pdb_path:
+            results_by_pdb_path[result.name] = []
+        results_by_pdb_path[result.name].append(result)
+
+    for pdb_path, results in results_by_pdb_path.items():
+
+        names = "|".join([result.domain_id for result in results])
+        bounds = "|".join([result.chopping for result in results])
+        fname = Path(pdb_path).stem
+
+        LOG.info(f"Generating pymol script for {fname} ({len(results)} domains: {bounds})")
         generate_pymol_image(
             pdb_path=pdb_path,
-            chain='A',
+            chain=default_chain_id,
             names=names,
             bounds=bounds,
-            image_out_path=os.path.join(save_dir, f'{fname}.png'),
-            path_to_script=os.path.join(outer_save_dir, 'image_gen.pml'),
-            pymol_executable=pymol_executable
+            image_out_path=os.path.join(str(save_dir), f'{fname}.png'),
+            path_to_script=os.path.join(str(save_dir), 'image_gen.pml'),
+            pymol_executable=PYMOL_EXE
         )
-    runtime = time.time() - start
-    print(f"Runtime: {round(runtime, 3)}s")
+
+
+def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
+    """
+    Render list of PredictionResult results to file pointer
+    """
+    for res in prediction_results:
+        row = {
+            'chain_id': res.chain_id,
+            'domain_id': res.domain_id,
+            'chopping': res.chopping,
+            'uncertainty': f'{res.uncertainty:.3g}',
+        }
+        csv_writer.writerow(row)
+
+def get_csv_writer(file_pointer):
+    csv_writer = csv.DictWriter(file_pointer, 
+                                fieldnames=OUTPUT_COLNAMES, 
+                                delimiter='\t')
+    return csv_writer
+
 
 def main(args):
+
     outer_save_dir = args.save_dir
     input_method = get_input_method(args)
-    model = load_model(args)
+    model = load_model(
+        model_dir=args.model_dir, 
+        remove_disordered_domain_threshold=args.remove_disordered_domain_threshold)
     os.makedirs(outer_save_dir, exist_ok=True)
+
+    prediction_results = []
+    csv_writer = get_csv_writer(args.output)
+    csv_writer.writeheader()
     if input_method == 'structure_directory':
         structure_dir = args.structure_directory
-        for i, fname in enumerate(os.listdir(structure_dir)):
+        for idx, fname in enumerate(os.listdir(structure_dir)):
             pdb_path = os.path.join(structure_dir, fname)
-            predict(model, pdb_path, outer_save_dir)
+            _results = predict(model, pdb_path)
+            prediction_results.extend(_results)
+            write_csv_results(csv_writer, _results)
     elif input_method == 'structure_file':
-        predict(model, args.structure_file, outer_save_dir)
+        prediction_results = predict(model, args.structure_file)
+        write_csv_results(csv_writer, prediction_results)
     else:
         raise NotImplementedError('Not implemented yet')
 
+    if args.pymol_visual:
+        write_pymol_script(results=prediction_results, save_dir=outer_save_dir)
 
-if __name__=="__main__":
+
+def parse_args():
+    """
+    Parse command line arguments    
+    """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_dir', type=str, default='saved_models/secondary_structure_epoch17/version_2',
+    parser.add_argument('--model_dir', type=str, default=f'{REPO_ROOT}/saved_models/secondary_structure_epoch17/version_2',
                         help='path to model directory must contain model.pt and config.json')
+    parser.add_argument('--output', '-o', type=argparse.FileType('w'), default='-',
+                        help='write results to this file (default: stdout)')
     parser.add_argument('--uniprot_id', type=str, default=None, help='single uniprot id')
     parser.add_argument('--uniprot_id_list_file', type=str, default=None,
                         help='path to file containing uniprot ids')
@@ -216,5 +308,10 @@ if __name__=="__main__":
                         help='if the domain is less than this fraction secondary structure, it will be removed')
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true', help='whether to generate pymol images')
     args = parser.parse_args()
-    main(args)
+    return args
+
+if __name__=="__main__":
+    # note: any variables created here will be global (bad)
+    setup_logging()
+    main(parse_args())
 

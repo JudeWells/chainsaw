@@ -6,6 +6,8 @@ import glob
 
 from src.utils.common import execute_bash_command
 
+import logging
+LOG = logging.getLogger(__name__)
 
 def generate_pymol_image(pdb_path, chain, names, bounds, image_out_path, path_to_script, pymol_executable='pymol'):
     """

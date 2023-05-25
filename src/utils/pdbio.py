@@ -9,6 +9,9 @@ from Bio import BiopythonParserWarning, SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
+import logging
+LOG = logging.getLogger(__name__)
+
 
 warnings.filterwarnings("ignore")
 
@@ -60,7 +63,7 @@ def AtomIterator(pdb_id, structure, fill_gaps=True, filter_residues=True):
         # (fill the sequence with 'X' residues in these regions)
         gaps = []
         rnum_annotations = []
-        # print([r.id for r in residues])  ('', rnum, '') each on the CATH ones - weird.
+        # LOG.info([r.id for r in residues])  ('', rnum, '') each on the CATH ones - weird.
         rnumbers = [r.id[1] for r in residues]
 
         for i, rnum in enumerate(rnumbers[:-1]):
