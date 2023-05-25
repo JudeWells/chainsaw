@@ -5,7 +5,6 @@ conv_logs/
 *.png
 *.npy
 pdbs/
-*.DS_store
 *.DS_Store
 experiments/cath_annotated_alphafold/assignment.table
 *image_gen.pml
@@ -13,4 +12,4 @@ experiments/cath_annotated_alphafold/assignment.table
 *.csv
 results/
 experiments/
-
+stride/
