@@ -3,20 +3,23 @@ import numpy as np
 import torch
 from torch.utils.data._utils.collate import default_collate
 
+import logging
+LOG = logging.getLogger(__name__)
+
 def set_max_size():
     """
     This function sets the upper limit on sequence based on how much memory is available
     on the CUDA device
     """
     if torch.cuda.is_available():
-        print("CUDA device is available.")
+        LOG.info("CUDA device is available.")
         device = torch.device('cuda')
         device_name = torch.cuda.get_device_name(0)
-        print(f"Device name: {device_name}")
+        LOG.info(f"Device name: {device_name}")
         # Get GPU memory information
         gpu_memory = torch.cuda.get_device_properties(0).total_memory
         gpu_memory_gb = gpu_memory / (1024 ** 3)
-        print(f"Total GPU memory: {gpu_memory_gb:.2f} GB")
+        LOG.info(f"Total GPU memory: {gpu_memory_gb:.2f} GB")
         if gpu_memory_gb < 13:
             return 670
         elif gpu_memory_gb < 17:
@@ -32,15 +35,15 @@ def set_max_size():
 try:
     MAX_PAD = set_max_size() # for memory constraints
 except Exception as exc:
-    print('Failed to set MAX_PAD based on CUDA device: Exception:', exc)
+    LOG.warning('Failed to set MAX_PAD based on CUDA device: Exception:', exc)
     MAX_PAD = 670
-    print('Falling back to MAX_PAD =', MAX_PAD)
+    LOG.warning('Falling back to MAX_PAD =', MAX_PAD)
 
 def set_seeds(seed):
     if seed is not None:
         # https://pytorch.org/docs/stable/notes/randomness.html
         # also see pytorch lightning seed everything
-        print(f"seeding {seed}")
+        LOG.info(f"seeding {seed}")
         np.random.seed(seed)
         torch.manual_seed(seed)
 
@@ -73,9 +76,9 @@ def get_torch_device(force_cpu=False):
         else:
             device_string = "cpu"
     except Exception as exc:
-        print('Exception', exc)
+        LOG.error(f'Exception: {exc}')
         device_string = "cpu"
-    print('Using device:', device_string)
+    LOG.info(f'Using device: {device_string}')
     device = torch.device(device_string)
     return device
 

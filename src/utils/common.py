@@ -3,6 +3,8 @@ import json
 import os
 import subprocess
 
+import logging
+LOG = logging.getLogger(__name__)
 
 def load_json(jsonfile):
     with open(jsonfile, "r") as jf:

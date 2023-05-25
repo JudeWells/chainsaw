@@ -1,0 +1,7 @@
+numpy
+pandas
+torch
+matplotlib
+requests
+biopython
+pydantic

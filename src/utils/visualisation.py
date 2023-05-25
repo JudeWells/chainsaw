@@ -10,6 +10,9 @@ from src.data import TrainDataset
 from src.evaluation.ScoreNDO import ndo_score
 
 
+import logging
+LOG = logging.getLogger(__name__)
+
 def get_cluster_masks(cluster_inds, ignore_label=None):
     n_clust = max(cluster_inds) + 1
     return [cluster_inds==i for i in range(n_clust) if i != ignore_label]
@@ -59,8 +62,8 @@ def pairwise_plot_with_domain_boxes(pair_vals, domain_masks=None, figsize=(10,10
         # On-diagonal part (continuous 'segment' boxes)
         for dom_slice in dom_slices:
             L = dom_slice.stop - dom_slice.start
-            # print(dom_slice.start, dom_slice.stop)
-            # print(dom_slice.stop, dom_slice.start)
+            # LOG.info(dom_slice.start, dom_slice.stop)
+            # LOG.info(dom_slice.stop, dom_slice.start)
             rect = Rectangle(
                 (dom_slice.start,dom_slice.start),L,L,
                 linewidth=linewidth,

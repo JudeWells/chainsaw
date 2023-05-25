@@ -44,7 +44,7 @@ def nll_loss_at_residue(V_hat, Y, residue_index):
 
 
 def null_nll_loss_at_residue(Y, residue_index):
-    return - np.log(1-Y[d]).sum()
+    return - np.log(1-Y[residue_index]).sum()
 
 
 def greedy_V(Y, N_iters=3, K_init=4, cost_type="mse"):

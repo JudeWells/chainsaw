@@ -10,7 +10,8 @@ from torch import nn
 from src.create_features.make_2d_features import make_pair_labels
 from src.create_features.make_2d_features import make_domain_mapping_dict
 
-
+import logging
+LOG = logging.getLogger(__name__)
 
 
 def get_checkpoint_epoch(checkpoint_file):
@@ -60,11 +61,11 @@ class PairwiseDomainPredictor(nn.Module):
             )
             if len(checkpoint_files) > 0:
                 self._epoch = get_checkpoint_epoch(checkpoint_files[0])
-                print(f"Loading saved checkpoint(s) ending at epoch {self._epoch}")
+                LOG.info(f"Loading saved checkpoint(s) ending at epoch {self._epoch}")
                 self.load_checkpoints(average=True)
                 self.load_checkpoints()
             else:
-                print("No checkpoints found to load")
+                LOG.info("No checkpoints found to load")
 
         if loss == "bce":
             self.loss_function = nn.BCELoss(reduction="none")
@@ -76,12 +77,11 @@ class PairwiseDomainPredictor(nn.Module):
         end_idx = self._epoch
         if self.n_checkpoints_to_average == 1:
             weights_file = os.path.join(self.checkpoint_dir, "weights.pt")
-            print(f"loading model weights from {weights_file}")
         else:
             # for e.g. resetting training weights for next training epoch after testing with avg
-            print(f"Loading last checkpoint (epoch {end_idx})", flush=True)
+            LOG.info(f"Loading last checkpoint (epoch {end_idx})")
             weights_file = os.path.join(self.checkpoint_dir, f"weights.{end_idx}.pt")
-        print("Loading weights from", weights_file, flush=True)
+        LOG.info(f"Loading weights from: {weights_file}")
         state_dict = torch.load(weights_file, map_location=self.device)
         if old_style:
             self.load_state_dict(state_dict, strict=False)

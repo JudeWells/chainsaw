@@ -7,6 +7,10 @@ import urllib
 import numpy as np
 import pandas as pd
 import requests
+import logging
+
+LOG = logging.getLogger(__name__)
+
 
 import Bio.PDB
 # from Bio.PDB.DSSP import DSSP
@@ -87,7 +91,7 @@ def check_no_residue_in_multiple_domains(mapping, resolve_conflics=True):
                 continue
             shared_res = set(res).intersection(set(res2))
             if len(shared_res):
-                print(f'Found {len(shared_res)} shared residues')
+                LOG.info(f'Found {len(shared_res)} shared residues')
                 if resolve_conflics:
                     mapping = resolve_residue_in_multiple_domain(mapping, shared_res)
                 else:
@@ -183,8 +187,8 @@ def make_labels_one_row(row, output_dir, non_aligned_residues=[]):
         make_pair_labels(len(row.pdb_seq), one_map, chain_id, output_dir, non_aligned_residues=non_aligned_residues)
 
     except Exception as e:
-        print('Failed to map domains for', chain_id)
-        print(e)
+        LOG.error('Failed to map domains for', chain_id)
+        LOG.error(e)
 
 
 def sort_domain_limits(limits, dom_names):
@@ -319,7 +323,7 @@ def fetch_missing_pdb_res_ix(pdbid, chain, pdb_dir = '../../pdbs'):
     if pdbid.lower() + '.pdb' not in os.listdir(pdb_dir):
         fetch_pdb_file(pdbid, pdb_dir)
     if pdbid.lower() + '.pdb' not in os.listdir(pdb_dir):
-        print('Unable to fetch file for', pdbid)
+        LOG.warning('Unable to fetch file for', pdbid)
         return None
     with open(os.path.join(pdb_dir, pdbid + '.pdb'), 'r') as filehandle:
         lines = filehandle.readlines()
@@ -364,27 +368,27 @@ def fill_domain_gaps(df, min_linker=20, pdb_dir='../../pdbs'):
                             if set(range(gap_start+1, gap_end)).issubset(missing):
                                 remove_gaps.append(j)
                             elif gap_end - gap_start < min_linker+1:
-                                print(f'Removing gap not caused by missing {row[df.columns[0]]}')
+                                LOG.info(f'Removing gap not caused by missing {row[df.columns[0]]}')
                                 remove_gaps.append(j)
                             elif len(set(range(gap_start+1, gap_end)) - missing) < min_linker:
-                                print(f'Removing gap which is partially missing {row[df.columns[0]]}')
+                                LOG.info(f'Removing gap which is partially missing {row[df.columns[0]]}')
                                 remove_gaps.append(j)
                 if len(remove_gaps):
                     for n_col in names_columns:
                         if n_col not in row or row.isnull()[n_col]:
                             continue
                         new_names = name_string_remove_gaps(df.loc[i, n_col], remove_gaps)
-                        print(f'Names change: {df.loc[i, n_col]} -> {new_names}')
+                        LOG.info(f'Names change: {df.loc[i, n_col]} -> {new_names}')
                         df.loc[i, n_col] = new_names
                     for b_col in bounds_columns:
                         if b_col not in row or row.isnull()[b_col]:
                             continue
                         new_bounds = bounds_string_remove_gaps(df.loc[i, b_col], remove_gaps)
-                        print(f'Bounds change: {df.loc[i, b_col]} -> {new_bounds}')
+                        LOG.info(f'Bounds change: {df.loc[i, b_col]} -> {new_bounds}')
                         df.loc[i, b_col] = new_bounds
-                print()
+                LOG.info()
         except Exception as e:
-            print(f'Exception {e}')
+            LOG.error(f'Exception {e}')
             pass
     return df
 
@@ -556,7 +560,7 @@ def save_matrices(matrix_list, pdbid, save_dir):
     combined = np.squeeze(np.stack([matrix_list]))
     save_path = os.path.join(save_dir, pdbid)
     np.savez_compressed(save_path, combined)
-    print('Success', pdbid)
+    LOG.info('Success', pdbid)
 
 
 def reshape_plddt(plddt, mapping, trim_non_aligned=False):
@@ -666,7 +670,7 @@ if __name__=='__main__':
             pae_dict = get_pae(uniprot_id=up_id)
             if not isinstance(pae_dict, dict):
                 raise Exception(f"No PAE dictionary returned {up_id}")
-            # print(row.unp_covered_by_pdb, row.pdb_ix_covered_by_up)
+            # LOG.info(row.unp_covered_by_pdb, row.pdb_ix_covered_by_up)
             mapping_dict = create_mapping(row)
             non_aligned = [k for k,v in mapping_dict.items() if v==MISSING_UP_IX]
             make_labels_one_row(row, pairwise_labels_dir, non_aligned_residues=non_aligned)
@@ -677,7 +681,7 @@ if __name__=='__main__':
             dist_matrix = reshape_distance_matrix(dist_matrix, mapping_dict, trim_non_aligned=True)
             plddt = reshape_plddt(plddt, mapping_dict, trim_non_aligned=True)
             if not (len(row.pdb_seq) - len(non_aligned) == len(dist_matrix)==len(pae_matrix)==len(plddt)):
-                print(
+                LOG.warning(
                     f"inconsistent residue lengths {row.uniprot_id}, matrix: {len(dist_matrix)}, df: {len(row.pdb_seq)}")
                 continue
             df.loc[i, 'plddt'] = plddt.mean()
@@ -685,7 +689,7 @@ if __name__=='__main__':
             save_matrices([pae_matrix, dist_matrix], chain_id, save_dir)
 
         except Exception as e:
-            print(f'Failed: {chain_id}, exception: {e}')
+            LOG.error(f'Failed: {chain_id}, exception: {e}')
             try:
                 with open(error_file, 'a') as filehandle:
                     filehandle.write(f"{chain_id} {e}\n")
