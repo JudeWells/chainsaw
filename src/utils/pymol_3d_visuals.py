@@ -9,7 +9,8 @@ from src.utils.common import execute_bash_command
 import logging
 LOG = logging.getLogger(__name__)
 
-def generate_pymol_image(pdb_path, chain, names, bounds, image_out_path, path_to_script, pymol_executable='pymol'):
+def generate_pymol_image(pdb_path, chain, names, bounds, image_out_path, path_to_script,
+                         pymol_executable='pymol', start_resi=1):
     """
     PyMol can only be called via command line, this script generates
     a pymol file which describes how one protein should be visualized
@@ -38,6 +39,8 @@ color white, structure_id\n"""
     for i, (name, bound) in enumerate(zip(names, bounds)):
         if len(name) > 0:
             start, end = bound.split('-')
+            start = int(start) + start_resi
+            end = int(end) + start_resi
             if name in color_dict:
                 seg_color = color_dict[name]
             else:

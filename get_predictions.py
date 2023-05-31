@@ -67,7 +67,8 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
         ss_filepath = pdb_path.replace('.pdb', '_ss.txt').replace('.cif', '_ss.txt')
         calculate_ss(output_pdb_path, chain, stride_path, ssfile=ss_filepath)
         helix, strand = make_ss_matrix(ss_filepath, nres=dist_matrix.shape[-1])
-        os.remove(output_pdb_path)
+        if renumber_pdbs:
+            os.remove(output_pdb_path)
         os.remove(ss_filepath)
     LOG.info(f"Distance matrix shape: {dist_matrix.shape}, SS matrix shape: {helix.shape}")
     stacked_features = np.stack((dist_matrix[0], helix, strand), axis=0)
@@ -136,10 +137,13 @@ def get_input_method(args):
     else:
         raise ValueError('No input method provided')
 
-def load_model(*, model_dir: str, remove_disordered_domain_threshold: float):
+def load_model(*, model_dir: str, remove_disordered_domain_threshold: float,
+                    min_ss_components: int, min_domain_length: int):
     config = common_utils.load_json(os.path.join(model_dir, "config.json"))
     config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
-    config["learner"]["trim_disordered"] = True
+    config["learner"]["post_process_domains"] = True
+    config["learner"]["min_ss_components"] = min_ss_components
+    config["learner"]["min_domain_length"] = min_domain_length
     learner = pairwise_predictor(config["learner"], output_dir=model_dir)
     learner.eval()
     learner.load_checkpoints()
@@ -178,12 +182,12 @@ def get_predictions_from_pdb(model, pdb_path, secondary_structure=False):
     return names, bounds
 
 
-def predict(model, pdb_path) -> List[PredictionResult]:
+def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
     """
     Makes the prediction and returns a list of PredictionResult objects
     """
     start = time.time()
-    x = inference_time_create_features(pdb_path, chain="A", secondary_structure=True)
+    x = inference_time_create_features(pdb_path, chain="A", secondary_structure=True, renumber_pdbs=renumber_pdbs)
     A_hat, domain_dict, uncertainty_array = model.predict(x)
     names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
     uncertainty = uncertainty_array[0]
@@ -214,25 +218,25 @@ def write_pymol_script(results: List[PredictionResult],
     # group the results by pdb_path
     results_by_pdb_path = {}
     for result in results:
-        if result.name not in results_by_pdb_path:
-            results_by_pdb_path[result.name] = []
-        results_by_pdb_path[result.name].append(result)
+        if result.pdb_path.name not in results_by_pdb_path:
+            results_by_pdb_path[result.pdb_path.name] = []
+        results_by_pdb_path[result.pdb_path.name].append(result)
 
-    for pdb_path, results in results_by_pdb_path.items():
+    for pdb_filename, results in results_by_pdb_path.items():
 
         names = "|".join([result.domain_id for result in results])
         bounds = "|".join([result.chopping for result in results])
-        fname = Path(pdb_path).stem
+        fname = Path(pdb_filename).stem
 
         LOG.info(f"Generating pymol script for {fname} ({len(results)} domains: {bounds})")
         generate_pymol_image(
-            pdb_path=pdb_path,
+            pdb_path=str(results[0].pdb_path),
             chain=default_chain_id,
             names=names,
             bounds=bounds,
             image_out_path=os.path.join(str(save_dir), f'{fname}.png'),
             path_to_script=os.path.join(str(save_dir), 'image_gen.pml'),
-            pymol_executable=PYMOL_EXE
+            pymol_executable=PYMOL_EXE,
         )
 
 
@@ -261,7 +265,10 @@ def main(args):
     input_method = get_input_method(args)
     model = load_model(
         model_dir=args.model_dir,
-        remove_disordered_domain_threshold=args.remove_disordered_domain_threshold)
+        remove_disordered_domain_threshold=args.remove_disordered_domain_threshold,
+        min_ss_components=args.min_ss_components,
+        min_domain_length=args.min_domain_length,
+    )
     os.makedirs(outer_save_dir, exist_ok=True)
 
     prediction_results = []
@@ -274,14 +281,15 @@ def main(args):
             _results = predict(model, pdb_path)
             prediction_results.extend(_results)
             write_csv_results(csv_writer, _results)
+            if args.pymol_visual:
+                write_pymol_script(results=_results, save_dir=outer_save_dir) # todo refactor this so that it naturally calls after each result generated
     elif input_method == 'structure_file':
         prediction_results = predict(model, args.structure_file)
         write_csv_results(csv_writer, prediction_results)
     else:
         raise NotImplementedError('Not implemented yet')
 
-    if args.pymol_visual:
-        write_pymol_script(results=prediction_results, save_dir=outer_save_dir)
+
 
 
 def parse_args():
@@ -304,7 +312,12 @@ def parse_args():
     parser.add_argument('--pdb_id_list_file', type=str, default=None, help='path to file containing uniprot ids')
     parser.add_argument('--save_dir', type=str, default='results', help='path where results and images will be saved')
     parser.add_argument('--remove_disordered_domain_threshold', type=float, default=0.35,
-                        help='if the domain is less than this fraction secondary structure, it will be removed')
+                        help='if the domain is less than this proportion secondary structure, it will be removed')
+    parser.add_argument('--min_domain_length', type=int, default=30,
+                        help='if the domain has fewer residues than this it will be removed')
+    parser.add_argument('--min_ss_components', type=int, default=2,
+                        help='if the domain has fewer than this number of distinct secondary structure components,'
+                             'it will be removed')
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true', help='whether to generate pymol images')
     args = parser.parse_args()
     return args

@@ -35,8 +35,11 @@ class PairwiseDomainPredictor(nn.Module):
         load_checkpoint_if_exists=False,
         save_val_best=True,
         max_recycles=0,
-        trim_disordered=False,
+        post_process_domains=True,
+        min_ss_components=2,
+        min_domain_length=30,
         remove_disordered_domain_threshold=0,
+        trim_each_domain=True,
     ):
         super().__init__()
         self._train_model = model  # we want to keep this hanging around so that optimizer references dont break
@@ -51,8 +54,11 @@ class PairwiseDomainPredictor(nn.Module):
         self.save_val_best = save_val_best
         self.best_val_metrics = {}
         self.max_recycles = max_recycles
-        self.trim_disordered = trim_disordered
+        self.post_process_domains = post_process_domains
         self.remove_disordered_domain_threshold = remove_disordered_domain_threshold
+        self.trim_each_domain = trim_each_domain
+        self.min_domain_length = min_domain_length
+        self.min_ss_components = min_ss_components
         if load_checkpoint_if_exists:
             checkpoint_files = sorted(
                 glob.glob(os.path.join(self.checkpoint_dir, "weights*")),
@@ -172,8 +178,8 @@ class PairwiseDomainPredictor(nn.Module):
             x = self.recycle_predict(x)
         y_pred = self.predict_pairwise(x)
         domain_dicts, uncertainty = self.domains_from_pairwise(y_pred)
-        if self.trim_disordered:
-            domain_dicts = self.remove_disordered_from_assignment(domain_dicts, x) # todo move this to domains from pairwise function
+        if self.post_process_domains:
+            domain_dicts = self.post_process(domain_dicts, x) # todo move this to domains from pairwise function
         if return_pairwise:
             return y_pred, domain_dicts, uncertainty
         else:
@@ -194,39 +200,103 @@ class PairwiseDomainPredictor(nn.Module):
             x[:, -2, :, :] = y_pred_from_domains
         return x
 
-    def remove_disordered_from_assignment(self, domain_dicts, x): # todo should then check if minimum domain size is met
-        """Residues that aren't part of secondary structure at the start and end
-        of the chain are removed from domain assignments and assigned to linker regions.
-        if self.remove_disordered_domain_threshold >0 then domains which are less than this threshold secondary structure are removed
-        """
+
+    def post_process(self, domain_dicts, x_batch):
         new_domain_dicts = []
-        for single_assign, single_x in zip(domain_dicts, x):
-            helix, sheet = single_x[1].cpu().numpy(), single_x[2].cpu().numpy()
-            trace_helix = np.diagonal(helix)
-            trace_sheet = np.diagonal(sheet)
-            ss_residues = list(np.where(trace_helix==1)[0]) + list(np.where(trace_sheet==1)[0])
-            if len(ss_residues) < 8:
-                new_domain_dicts.append({"linker": [i for i in range(x.shape[-1])]})
-                continue
+        for domain_dict, x in zip(domain_dicts, x_batch):
+            x = x.cpu().numpy()
+            domain_dict = {k: list(v) for k, v in domain_dict.items()}
+            helix, sheet = x[1], x[2]
+            diag_helix = np.diagonal(helix)
+            diag_sheet = np.diagonal(sheet)
+            ss_residues = list(np.where(diag_helix == 1)[0]) + list(np.where(diag_sheet == 1)[0])
+
+            domain_dict = self.trim_disordered_boundaries(domain_dict, ss_residues)
+
+            if self.remove_disordered_domain_threshold > 0:
+                domain_dict = self.remove_disordered_domains(domain_dict, ss_residues)
+
+            if self.min_ss_components > 0:
+                domain_dict = self.remove_domains_with_few_ss_components(domain_dict, x)
+
+            if self.min_domain_length > 0:
+                domain_dict = self.remove_domains_with_short_length(domain_dict)
+            new_domain_dicts.append(domain_dict)
+        return new_domain_dicts
+
+    def trim_disordered_boundaries(self, domain_dict, ss_residues):
+        if not self.trim_each_domain:
             start = min(ss_residues)
             end = max(ss_residues)
-            single_assign = {k: [r for r in v if r >= start and r <= end] for k, v in single_assign.items()}
-            single_assign["linker"] += [r for r in range(start)] + [r for r in range(end+1, x.shape[-1])]
-            if self.remove_disordered_domain_threshold > 0:
-                new_single_assign = {}
-                for dname, res in single_assign.items():
-                    if dname == "linker":
-                        continue
-                    if len(res) == 0:
-                        continue
-                    if len(set(res).intersection(set(ss_residues))) / len(res) < self.remove_disordered_domain_threshold:
-                        single_assign["linker"] += res
-                    else:
-                        new_single_assign[dname] = res
-                new_single_assign["linker"] = single_assign["linker"]
-                single_assign = new_single_assign
-            new_domain_dicts.append(single_assign)
-        return new_domain_dicts
+        for dname, res in domain_dict.items():
+            if dname == "linker":
+                continue
+            if self.trim_each_domain:
+                domain_specific_ss = set(ss_residues).intersection(set(res))
+                if len(domain_specific_ss) == 0:
+                    continue
+                start = min(domain_specific_ss)
+                end = max(domain_specific_ss)
+            domain_dict["linker"] += [r for r in res if r < start or r > end]
+            domain_dict[dname] = [r for r in res if r >= start and r <= end]
+        return domain_dict
+
+    def remove_disordered_domains(self, domain_dict, ss_residues):
+        new_domain_dict = {}
+        for dname, res in domain_dict.items():
+            if dname == "linker":
+                continue
+            if len(res) == 0:
+                continue
+            if len(set(res).intersection(set(ss_residues))) / len(res) < self.remove_disordered_domain_threshold:
+                domain_dict["linker"] += res
+            else:
+                new_domain_dict[dname] = res
+        new_domain_dict["linker"] = domain_dict["linker"]
+        return new_domain_dict
+
+    def remove_domains_with_few_ss_components(self, domain_dict, x):
+        """
+        Remove domains where number of ss components is less than minimum
+        eg if self.min_ss_components=2 domains made of only a single helix or sheet are removed
+        achieve this by counting the number of unique string hashes in domain rows of x
+        """
+        new_domain_dict = {}
+        for dname, res in domain_dict.items():
+            helix = x[1][res, :][:, res]
+            strand = x[2][res, :][:, res]
+            helix = helix[np.any(helix, axis=1)]
+            strand = strand[np.any(strand, axis=1)]
+            n_helix = len(set(["".join([str(int(i)) for i in row]) for row in helix]))
+            n_sheet = len(set(["".join([str(int(i)) for i in row]) for row in strand]))
+            if dname == "linker":
+                continue
+            if len(res) == 0:
+                continue
+            if n_helix + n_sheet < self.min_ss_components:
+                domain_dict["linker"] += res
+            else:
+                new_domain_dict[dname] = res
+        new_domain_dict["linker"] = domain_dict["linker"]
+        return new_domain_dict
+
+    def remove_domains_with_short_length(self, domain_dict):
+        """
+        Remove domains where length is less than minimum
+        """
+        new_domain_dict = {}
+        for dname, res in domain_dict.items():
+            if dname == "linker":
+                continue
+
+
+            if len(res) < self.min_domain_length:
+                domain_dict["linker"] += res
+            else:
+                new_domain_dict[dname] = res
+        new_domain_dict["linker"] = domain_dict["linker"]
+        return new_domain_dict
+
 
 
 class CSVDomainPredictor:

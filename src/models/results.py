@@ -10,8 +10,8 @@ class PredictionResult(BaseModel):
     pdb_path: Path
     uncertainty: float
     chain_id: Optional[str]
-    chopping: str = Field(..., min_length=1)
-    domain_id: str = Field(..., min_length=1)
+    chopping: str = Field(..., min_length=0)
+    domain_id: str = Field(..., min_length=0)
     
     @validator('chain_id', always=True, pre=True, allow_reuse=True)
     def set_chain_id(cls, v, values):
