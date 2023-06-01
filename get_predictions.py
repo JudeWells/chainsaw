@@ -64,7 +64,7 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
             renum_pdb_file(pdb_path, output_pdb_path)
         else:
             output_pdb_path = pdb_path
-        ss_filepath = pdb_path.replace('.pdb', '_ss.txt').replace('.cif', '_ss.txt')
+        ss_filepath = pdb_path + '_ss.txt'
         calculate_ss(output_pdb_path, chain, stride_path, ssfile=ss_filepath)
         helix, strand = make_ss_matrix(ss_filepath, nres=dist_matrix.shape[-1])
         if renumber_pdbs:
@@ -137,8 +137,8 @@ def get_input_method(args):
     else:
         raise ValueError('No input method provided')
 
-def load_model(*, model_dir: str, remove_disordered_domain_threshold: float,
-                    min_ss_components: int, min_domain_length: int):
+def load_model(*, model_dir: str, remove_disordered_domain_threshold: float = 0.35,
+                    min_ss_components: int = 2, min_domain_length: int = 30):
     config = common_utils.load_json(os.path.join(model_dir, "config.json"))
     config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
     config["learner"]["post_process_domains"] = True
