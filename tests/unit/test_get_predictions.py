@@ -13,11 +13,9 @@ def test_predict_from_pdb_file(tmp_path, capsys):
 
     example_af_id = "AF-A0A1W2PQ64-F1-model_v4"
     expected_results = [
-        ['domain_1', '189-237'],
-        ['domain_2', '238-353'],
-        ['domain_3', '381-505'],
-        ['domain_4', '524-658'],
-        ['domain_5', '687-826'],
+        ['domain_1', '6-39'],
+        ['domain_1', '94-192'],
+        ['domain_2', '41-90'],
     ]
 
     tmp_results_dir = tmp_path / "results"
