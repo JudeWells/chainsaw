@@ -230,25 +230,6 @@ def calc_residue_dist(residue_one, residue_two) :
     return dist
 
 
-def calc_dist_matrix(chain, return_plddt=False):
-    """Returns a matrix of C-alpha distances between two chains"""
-    distances = np.zeros((len(chain), len(chain)), 'float')
-    plddt = np.zeros(len(chain))
-    for row, residue_one in enumerate(chain) :
-        try:
-            plddt[row]=residue_one["CA"].bfactor
-        except:
-            pass
-        for col, residue_two in enumerate(chain[row:]):
-            dist = calc_residue_dist(residue_one, residue_two)
-            distances[row, col + row] = dist
-            distances[col + row, row] = dist
-    if return_plddt:
-        return distances, plddt
-    else:
-        return distances
-
-
 def download_pdb_file(pdb_id, pdb_dir):
     pdb_url = f"https://files.rcsb.org/download/{pdb_id}.pdb"
     result = requests.get(pdb_url).text

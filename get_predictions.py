@@ -23,11 +23,11 @@ from typing import List
 
 import Bio.PDB
 
-from src.create_features.make_2d_features import calc_dist_matrix
 from src.utils import common as common_utils
 from src.factories import pairwise_predictor
 from src.utils.cif2pdb import cif2pdb
-from src.create_features.secondary_structure.secondary_structure_features import renum_pdb_file, calculate_ss, make_ss_matrix
+from src.create_features.secondary_structure.secondary_structure_features import renum_pdb_file,\
+    calculate_ss, make_ss_matrix
 from src.utils.pymol_3d_visuals import generate_pymol_image
 from src.models.results import PredictionResult
 
@@ -299,7 +299,8 @@ def parse_args():
     Parse command line arguments
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_dir', type=str, default=f'{REPO_ROOT}/saved_models/secondary_structure_epoch17/version_2',
+    parser.add_argument('--model_dir', type=str,
+                        default=f'{REPO_ROOT}/saved_models/secondary_structure_epoch17/version_2',
                         help='path to model directory must contain model.pt and config.json')
     parser.add_argument('--output', '-o', type=argparse.FileType('w'), default='-',
                         help='write results to this file (default: stdout)')
@@ -320,7 +321,8 @@ def parse_args():
     parser.add_argument('--min_ss_components', type=int, default=2,
                         help='if the domain has fewer than this number of distinct secondary structure components,'
                              'it will be removed')
-    parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true', help='whether to generate pymol images')
+    parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true',
+                        help='whether to generate pymol images')
     args = parser.parse_args()
     return args
 
