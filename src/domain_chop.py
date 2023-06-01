@@ -1,14 +1,12 @@
 """Domain predictor classes.
 """
-import copy
 import os
 import glob
 import numpy as np
 import pandas as pd
 import torch
 from torch import nn
-from src.create_features.make_2d_features import make_pair_labels
-from src.create_features.make_2d_features import make_domain_mapping_dict
+from src.create_features.make_2d_features import make_pair_labels, make_domain_mapping_dict
 
 import logging
 LOG = logging.getLogger(__name__)
