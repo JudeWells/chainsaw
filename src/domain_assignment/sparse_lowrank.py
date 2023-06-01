@@ -1,7 +1,6 @@
 import numpy as np
 
 
-# TODO: write tests for these
 def mse_loss_at_residue(V_hat, Y, residue_index):
     # loss contribution of residue given current assignment
     # assumes Y is symmetric

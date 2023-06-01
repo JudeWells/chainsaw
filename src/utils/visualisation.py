@@ -169,7 +169,6 @@ def wandb_visualise_domain_preds(learner, dataset, epoch, prefix=""):
             # note - no padding this time
             pair_loss, _ = learner.compute_loss(pair_pred, y, batch_average=False)
             pair_loss, pair_pred, dom_pred = pair_loss[0].item(), pair_pred[0].cpu().numpy(), dom_pred[0]  # remove batch dim
-            # TODO compute MSE
             ndo = ndo_score(dom_pred, domains)
         if len(y.shape) > 2:
             x, y = x[0], y[0]  # remove batch dim

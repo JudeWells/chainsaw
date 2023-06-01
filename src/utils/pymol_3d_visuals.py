@@ -1,8 +1,4 @@
 import os
-import subprocess
-
-import pandas as pd
-import glob
 
 from src.utils.common import execute_bash_command
 
@@ -53,4 +49,5 @@ color white, structure_id\n"""
         filehandle.write(script_text)
     bash_command = f"{pymol_executable} -c {path_to_script}"
     status = execute_bash_command(bash_command)
+    os.remove(path_to_script)
 

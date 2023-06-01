@@ -282,10 +282,12 @@ def main(args):
             prediction_results.extend(_results)
             write_csv_results(csv_writer, _results)
             if args.pymol_visual:
-                write_pymol_script(results=_results, save_dir=outer_save_dir) # todo refactor this so that it naturally calls after each result generated
+                write_pymol_script(results=_results, save_dir=outer_save_dir)
     elif input_method == 'structure_file':
         prediction_results = predict(model, args.structure_file)
         write_csv_results(csv_writer, prediction_results)
+        if args.pymol_visual:
+            write_pymol_script(results=prediction_results, save_dir=outer_save_dir)
     else:
         raise NotImplementedError('Not implemented yet')
 

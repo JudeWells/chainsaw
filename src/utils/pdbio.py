@@ -108,7 +108,7 @@ def AtomIterator(pdb_id, structure, fill_gaps=True, filter_residues=True):
         #     id = ("Model%s|" % str(model.id)) + id
 
         record = SeqRecord(Seq("".join(res_out)), id=record_id, description=record_id)
-        # TODO: Test PDB files with DNA and RNA too:
+
         record.annotations["residues"] = rnum_annotations
         record.annotations["molecule_type"] = "protein"
 

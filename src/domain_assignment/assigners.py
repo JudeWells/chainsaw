@@ -53,7 +53,7 @@ class SparseLowRank(BaseAssigner):
             if cluster_inds.size > 0:
                 assignments[f"domain_{domain_ix}"] = cluster_inds
                 domain_ix += 1
-        return assignments, scaled_loss # todo consider calculating this before removing small clusters
+        return assignments, scaled_loss
 
 
 class SpectralClustering(BaseAssigner):
