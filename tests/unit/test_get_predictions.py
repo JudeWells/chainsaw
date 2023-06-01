@@ -11,7 +11,7 @@ DEFAULT_DISORDERED_DOMAIN_THRESHOLD = 0.35
 
 def test_predict_from_pdb_file(tmp_path, capsys):
 
-    example_af_id = "AF-Q5T5X7-F1-model_v4"
+    example_af_id = "AF-A0A1W2PQ64-F1-model_v4"
     expected_results = [
         ['domain_1', '189-237'],
         ['domain_2', '238-353'],

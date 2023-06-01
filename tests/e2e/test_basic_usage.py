@@ -11,15 +11,13 @@ DATA_DIR = REPO_ROOT / "example_files"
 def test_basic_usage(tmp_path):
 
     # setup test data
-    af_id = "AF-Q5T5X7-F1-model_v4"
+    af_id = "AF-A0A1W2PQ64-F1-model_v4"
     example_structure_path = DATA_DIR / f"{af_id}.pdb"
     expected_output = f"""
 chain_id	domain_id	chopping	uncertainty
-AF-Q5T5X7-F1-model_v4	domain_1	189-237	0.0221
-AF-Q5T5X7-F1-model_v4	domain_2	238-353	0.0221
-AF-Q5T5X7-F1-model_v4	domain_3	381-505	0.0221
-AF-Q5T5X7-F1-model_v4	domain_4	524-658	0.0221
-AF-Q5T5X7-F1-model_v4	domain_5	687-826	0.0221
+AF-A0A1W2PQ64-F1-model_v4	domain_1	6-39	0.0444
+AF-A0A1W2PQ64-F1-model_v4	domain_1	94-192	0.0444
+AF-A0A1W2PQ64-F1-model_v4	domain_2	41-90	0.0444
 """.strip()
     orig_path = Path.cwd()
     script_path = REPO_ROOT / "get_predictions.py"

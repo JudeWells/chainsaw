@@ -9,11 +9,11 @@ def test_write_csv_results():
 
     mock_pdb_path = Path("fake.pdb")
     expected_results_text = """
-AF-Q5T5X7-F1-model_v4	domain_1	189-237	0.01
-AF-Q5T5X7-F1-model_v4	domain_2	238-353	0.002
-AF-Q5T5X7-F1-model_v4	domain_3	381-505	0.0234
-AF-Q5T5X7-F1-model_v4	domain_4	524-658	0.0135
-AF-Q5T5X7-F1-model_v4	domain_5	687-826	0.00342
+AF-A0A1W2PQ64-F1-model_v4	domain_1	189-237	0.01
+AF-A0A1W2PQ64-F1-model_v4	domain_2	238-353	0.002
+AF-A0A1W2PQ64-F1-model_v4	domain_3	381-505	0.0234
+AF-A0A1W2PQ64-F1-model_v4	domain_4	524-658	0.0135
+AF-A0A1W2PQ64-F1-model_v4	domain_5	687-826	0.00342
     """.strip() + '\n'
 
     results = []
