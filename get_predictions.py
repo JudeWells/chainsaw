@@ -37,9 +37,12 @@ STRIDE_EXE = os.environ.get('STRIDE_EXE', str(REPO_ROOT / "stride" / "stride"))
 PYMOL_EXE = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
 OUTPUT_COLNAMES = ['chain_id', 'domain_id', 'chopping', 'uncertainty']
 
+ACCEPTED_STRUCTURE_FILE_SUFFIXES = ['.pdb', '.cif']
+
 def setup_logging():
+    loglevel = os.environ.get('LOGLEVEL', 'INFO').upper()
     # log all messages to stderr so results can be sent to stdout
-    logging.basicConfig(level=logging.INFO,
+    logging.basicConfig(level=loglevel,
                     stream=sys.stderr,
                     format='%(asctime)s | %(levelname)s | %(message)s', 
                     datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -271,7 +274,13 @@ def main(args):
     if input_method == 'structure_directory':
         structure_dir = args.structure_directory
         for idx, fname in enumerate(os.listdir(structure_dir)):
+            suffix = Path(fname).suffix
+            LOG.debug(f"Checking file {fname} (suffix: {suffix}) ..")
+            if suffix not in ACCEPTED_STRUCTURE_FILE_SUFFIXES:
+                continue
+            
             pdb_path = os.path.join(structure_dir, fname)
+            LOG.info(f"Making prediction for file {fname}")
             _results = predict(model, pdb_path)
             prediction_results.extend(_results)
             write_csv_results(csv_writer, _results)
