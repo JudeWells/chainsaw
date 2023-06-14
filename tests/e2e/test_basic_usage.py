@@ -27,8 +27,6 @@ def test_basic_usage(tmp_path):
         os.chdir(str(tmp_path))
         # os.chdir(str(orig_path))
         cmd_args = ["python", str(script_path), "--structure_file", str(example_structure_path)]
-        print("CWD: " + str(tmp_path))
-        print("CMD: " + " ".join(cmd_args))
         completed_process = subprocess.run(cmd_args, check=True, capture_output=True)
         results_output = completed_process.stdout.decode().strip()
     except subprocess.CalledProcessError as e:
