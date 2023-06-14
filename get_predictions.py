@@ -121,11 +121,11 @@ def get_model_structure(structure_path, chain='A') -> Bio.PDB.Structure:
     model = structure[0]
     return model
 
-def get_model_structure_sequence(model: Bio.PDB.Structure, chain='A') -> str:
+def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
     """
     Returns the MD5 hash of a given PDB or MMCIF structure
     """
-    residues = [c for c in model[chain].child_list]
+    residues = [c for c in structure_model[chain].child_list]
     _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
     sequence = ''.join([_3to1[r.get_resname()] for r in residues])
     return sequence
@@ -139,9 +139,9 @@ def calc_dist_matrix(chain) :
             distances[row, col] = calc_residue_dist(residue_one, residue_two)
     return distances
 
-def get_distance(model, chain='A'):
+def get_distance(structure_model: Bio.PDB.Structure, chain='A'):
     if chain is not None:
-        residues = [c for c in model[chain].child_list]
+        residues = [c for c in structure_model[chain].child_list]
     dist_matrix = calc_dist_matrix(residues) # recycling dimensions are added later
     x = np.expand_dims(dist_matrix, axis=0)
     # replace zero values and then invert.
