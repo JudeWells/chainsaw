@@ -13,12 +13,11 @@ def test_basic_usage(tmp_path):
     # setup test data
     af_id = "AF-A0A1W2PQ64-F1-model_v4"
     example_structure_path = DATA_DIR / f"{af_id}.pdb"
-    expected_output = f"""
-chain_id	domain_id	chopping	uncertainty
-AF-A0A1W2PQ64-F1-model_v4	domain_1	6-39	0.0444
-AF-A0A1W2PQ64-F1-model_v4	domain_1	94-192	0.0444
-AF-A0A1W2PQ64-F1-model_v4	domain_2	41-90	0.0444
-""".strip()
+    expected_cols = [
+        ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty'],
+        ['AF-A0A1W2PQ64-F1-model_v4', 'a126e3d4d1a2dcadaa684287855d19f4', '194', '3', '6-39,41-90,94-192', '0.0444'],
+    ]
+    expected_output = "\r\n".join(["\t".join(row) for row in expected_cols])
     orig_path = Path.cwd()
     script_path = REPO_ROOT / "get_predictions.py"
 

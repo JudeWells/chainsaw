@@ -35,7 +35,7 @@ LOG = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).parent.resolve()
 STRIDE_EXE = os.environ.get('STRIDE_EXE', str(REPO_ROOT / "stride" / "stride"))
 PYMOL_EXE = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
-OUTPUT_COLNAMES = ['chain_id', 'domain_id', 'chopping', 'uncertainty']
+OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty']
 
 ACCEPTED_STRUCTURE_FILE_SUFFIXES = ['.pdb', '.cif']
 
@@ -203,11 +203,12 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
     # return a list of PredictionResult objects
     prediction_results = []
     for domain_id, chopping in zip(names, bounds):
-        result = PredictionResult(pdb_path=pdb_path,
-                                  domain_id=domain_id,
-                                  chopping=chopping,
-                                  uncertainty=uncertainty)
-        prediction_results.append(result)
+    result = PredictionResult(pdb_path=pdb_path,
+                                sequence_md5=model_structure_md5,
+                                nres=len(model_structure_seq),
+                                ndom=len(domain_choppings),
+                                chopping=','.join(domain_choppings),
+                                uncertainty=uncertainty)
 
     runtime = time.time() - start
     LOG.info(f"Runtime: {round(runtime, 3)}s")
@@ -250,7 +251,9 @@ def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
     for res in prediction_results:
         row = {
             'chain_id': res.chain_id,
-            'domain_id': res.domain_id,
+            'sequence_md5': res.sequence_md5,
+            'nres': res.nres,
+            'ndom': res.ndom,
             'chopping': res.chopping,
             'uncertainty': f'{res.uncertainty:.3g}',
         }

@@ -9,14 +9,26 @@ from get_predictions import predict, load_model, PredictionResult
 
 DEFAULT_DISORDERED_DOMAIN_THRESHOLD = 0.35
 
+def get_length_from_pdb_file(pdb_file):
+    with open(pdb_file) as f:
+        for line in f:
+            if line.startswith('SEQRES'):
+                return int(line.split()[3])
+
 def test_predict_from_pdb_file(tmp_path, capsys):
 
     example_af_id = "AF-A0A1W2PQ64-F1-model_v4"
-    expected_results = [
-        ['domain_1', '6-39'],
-        ['domain_1', '94-192'],
-        ['domain_2', '41-90'],
-    ]
+    expected_structure_file = Path(f'{REPO_ROOT}/example_files/{example_af_id}.pdb')
+    expected_nres = get_length_from_pdb_file(expected_structure_file)
+    expected_result = PredictionResult(
+        pdb_path=expected_structure_file,
+        chain_id=example_af_id, 
+        sequence_md5='a126e3d4d1a2dcadaa684287855d19f4',
+        nres=expected_nres, 
+        ndom=3,
+        chopping='6-39_94-192,41-90', 
+        uncertainty=0.0123,
+    )
 
     tmp_results_dir = tmp_path / "results"
     tmp_results_dir.mkdir()
@@ -27,7 +39,6 @@ def test_predict_from_pdb_file(tmp_path, capsys):
     for model_fname in ['weights.pt', 'config.json']:
         shutil.copyfile(str(expected_model_dir / model_fname), str(tmp_model_dir / model_fname))
 
-    expected_structure_file = Path(f'{REPO_ROOT}/example_files/{example_af_id}.pdb')
     tmp_structure_file = tmp_path / f"{example_af_id}.pdb"
     shutil.copyfile(str(expected_structure_file), str(tmp_structure_file))
 
@@ -35,10 +46,11 @@ def test_predict_from_pdb_file(tmp_path, capsys):
         model_dir=str(tmp_model_dir), 
         remove_disordered_domain_threshold=DEFAULT_DISORDERED_DOMAIN_THRESHOLD)
 
-    results = predict(model, str(tmp_structure_file))
+    result = predict(model, str(tmp_structure_file))
 
-    assert [r.chain_id for r in results] == [example_af_id for r in expected_results]
-    assert [r.domain_id for r in results] == [r[0] for r in expected_results]
-    assert [r.chopping for r in results] == [r[1] for r in expected_results]
+    assert normalise_result(result) == normalise_result(expected_result)
+
+def normalise_result(res):
+    res.pdb_path = '__PDB_PATH__'
 
 
