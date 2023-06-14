@@ -56,8 +56,11 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
     if pdb_path.endswith(".cif"):
         pdb_path = cif2pdb(pdb_path)
     
-    # allow this to be created elsewhere and passed in (to avoid reparsing)
-    # note: this is not ideal
+    # HACK: allow `model_structure` to be created elsewhere (to avoid reparsing)
+    # Ideally this would always happen further upstream and we wouldn't
+    # need to pass in `pdb_path`, however `pdb_path` is used to generate
+    # additional files and I don't want to mess around with that logic.
+    # -- Ian
     if not model_structure:
         model_structure = get_model_structure(pdb_path, chain=chain)
     
