@@ -50,9 +50,10 @@ def setup_logging():
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
                                    renumber_pdbs=True, add_recycling=True, add_mask=False,
+                                   stride_path=STRIDE_EXE,
                                    *,
                                    model_structure: Bio.PDB.Structure=None,
-                                   stride_path=STRIDE_EXE):
+                                   ):
     if pdb_path.endswith(".cif"):
         pdb_path = cif2pdb(pdb_path)
     
