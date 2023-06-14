@@ -234,19 +234,28 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
 
     assert len(names) == len(bounds)
 
-    # gather choppings, then add as one PredictionResult object
-    domain_choppings = []
+    # gather choppings into segments in domains 
+    chopping_segs_by_domain = {}
     for domain_id, chopping in zip(names, bounds):
-        domain_choppings.append(chopping)
+        if domain_id not in chopping_segs_by_domain:
+            chopping_segs_by_domain[domain_id] = []
+        chopping_segs_by_domain[domain_id].append(chopping)
 
-    # sort choppings by start residue
-    domain_choppings = sorted(domain_choppings, key=lambda x: int(x.split('-')[0]))
+    # convert list of segments "start-end" into chopping string for the domain 
+    # (join distontiguous segs with "_")
+    chopping_str_by_domain = { domid: '_'.join(segs) for domid, segs in chopping_segs_by_domain.items() }
+
+    # sort domain choppings by the start residue in first segment
+    sorted_domain_chopping_strs = sorted(chopping_str_by_domain.values(), key=lambda x: int(x.split('-')[0]))
+
+    # convert to string (join domains with ",")
+    chopping_str = ','.join(sorted_domain_chopping_strs)
 
     result = PredictionResult(pdb_path=pdb_path,
                                 sequence_md5=model_structure_md5,
                                 nres=len(model_structure_seq),
-                                ndom=len(domain_choppings),
-                                chopping=','.join(domain_choppings),
+                                ndom=len(chopping_str_by_domain),
+                                chopping=chopping_str,
                                 uncertainty=uncertainty)
 
     runtime = time.time() - start
