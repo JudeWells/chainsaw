@@ -13,6 +13,7 @@ User can provide any of the following as an input to get predictions:
 import argparse
 import csv
 import logging
+import hashlib
 import numpy as np
 import os
 from pathlib import Path
@@ -35,7 +36,7 @@ LOG = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).parent.resolve()
 STRIDE_EXE = os.environ.get('STRIDE_EXE', str(REPO_ROOT / "stride" / "stride"))
 PYMOL_EXE = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
-OUTPUT_COLNAMES = ['chain_id', 'domain_id', 'chopping', 'uncertainty']
+OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty']
 
 ACCEPTED_STRUCTURE_FILE_SUFFIXES = ['.pdb', '.cif']
 
@@ -49,10 +50,23 @@ def setup_logging():
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
                                    renumber_pdbs=True, add_recycling=True, add_mask=False,
-                    stride_path=STRIDE_EXE):
+                                   stride_path=STRIDE_EXE,
+                                   *,
+                                   model_structure: Bio.PDB.Structure=None,
+                                   ):
     if pdb_path.endswith(".cif"):
         pdb_path = cif2pdb(pdb_path)
-    dist_matrix = get_distance(pdb_path, chain=chain)
+    
+    # HACK: allow `model_structure` to be created elsewhere (to avoid reparsing)
+    # Ideally this would always happen further upstream and we wouldn't
+    # need to pass in `pdb_path`, however `pdb_path` is used to generate
+    # additional files and I don't want to mess around with that logic.
+    # -- Ian
+    if not model_structure:
+        model_structure = get_model_structure(pdb_path, chain=chain)
+    
+    dist_matrix = get_distance(model_structure)
+    
     n_res = dist_matrix.shape[-1]
     if not secondary_structure:
         if add_recycling:
@@ -93,6 +107,29 @@ def calc_residue_dist(residue_one, residue_two) :
         dist = 20.0
     return dist
 
+def get_model_structure(structure_path, chain='A') -> Bio.PDB.Structure:
+    """
+    Returns the Bio.PDB.Structure object for a given PDB or MMCIF file
+    """
+    chain_id = os.path.split(structure_path)[-1].split('.')[0]
+    if structure_path.endswith('.pdb'):
+        structure = Bio.PDB.PDBParser().get_structure(chain_id, structure_path)
+    elif structure_path.endswith('.cif'):
+        structure = Bio.PDB.MMCIFParser().get_structure(chain_id, structure_path)
+    else:
+        raise ValueError(f'Unrecognized file extension: {structure_path}')
+    model = structure[0]
+    return model
+
+def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
+    """
+    Returns the MD5 hash of a given PDB or MMCIF structure
+    """
+    residues = [c for c in structure_model[chain].child_list]
+    _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
+    sequence = ''.join([_3to1[r.get_resname()] for r in residues])
+    return sequence
+
 
 def calc_dist_matrix(chain) :
     """Returns a matrix of C-alpha distances between two chains"""
@@ -102,17 +139,9 @@ def calc_dist_matrix(chain) :
             distances[row, col] = calc_residue_dist(residue_one, residue_two)
     return distances
 
-def get_distance(structure_path, chain='A'):
-    chain_id = os.path.split(structure_path)[-1].split('.')[0]
-    if structure_path.endswith('.pdb'):
-        structure = Bio.PDB.PDBParser().get_structure(chain_id, structure_path)
-    elif structure_path.endswith('.cif'):
-        structure = Bio.PDB.MMCIFParser().get_structure(chain_id, structure_path)
-    else:
-        raise ValueError(f'Unrecognized file extension: {structure_path}')
-    model = structure[0]
+def get_distance(structure_model: Bio.PDB.Structure, chain='A'):
     if chain is not None:
-        residues = [c for c in model[chain].child_list]
+        residues = [c for c in structure_model[chain].child_list]
     dist_matrix = calc_dist_matrix(residues) # recycling dimensions are added later
     x = np.expand_dims(dist_matrix, axis=0)
     # replace zero values and then invert.
@@ -178,19 +207,25 @@ def convert_domain_dict_strings(domain_dict):
 
     return '|'.join(domain_names), '|'.join(domain_bounds)
 
-def get_predictions_from_pdb(model, pdb_path, secondary_structure=False):
-    x = inference_time_create_features(pdb_path, chain="A", secondary_structure=secondary_structure)
-    A_hat, domain_dict, uncertainty = model.predict(x)
-    names, bounds = convert_domain_dict_strings(domain_dict[0])
-    return names, bounds
-
 
 def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
     """
     Makes the prediction and returns a list of PredictionResult objects
     """
     start = time.time()
-    x = inference_time_create_features(pdb_path, chain="A", secondary_structure=True, renumber_pdbs=renumber_pdbs)
+
+    # get model structure metadata
+    pdbchain = "A"
+    model_structure = get_model_structure(pdb_path, chain=pdbchain)
+    model_structure_seq = get_model_structure_sequence(model_structure)
+    model_structure_md5 = hashlib.md5(model_structure_seq.encode('utf-8')).hexdigest()
+
+    x = inference_time_create_features(pdb_path, 
+                                       chain=pdbchain, 
+                                       secondary_structure=True, 
+                                       renumber_pdbs=renumber_pdbs, 
+                                       model_structure=model_structure)
+
     A_hat, domain_dict, uncertainty_array = model.predict(x)
     names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
     uncertainty = uncertainty_array[0]
@@ -200,18 +235,33 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
 
     assert len(names) == len(bounds)
 
-    # return a list of PredictionResult objects
-    prediction_results = []
+    # gather choppings into segments in domains 
+    chopping_segs_by_domain = {}
     for domain_id, chopping in zip(names, bounds):
-        result = PredictionResult(pdb_path=pdb_path,
-                                  domain_id=domain_id,
-                                  chopping=chopping,
-                                  uncertainty=uncertainty)
-        prediction_results.append(result)
+        if domain_id not in chopping_segs_by_domain:
+            chopping_segs_by_domain[domain_id] = []
+        chopping_segs_by_domain[domain_id].append(chopping)
+
+    # convert list of segments "start-end" into chopping string for the domain 
+    # (join distontiguous segs with "_")
+    chopping_str_by_domain = { domid: '_'.join(segs) for domid, segs in chopping_segs_by_domain.items() }
+
+    # sort domain choppings by the start residue in first segment
+    sorted_domain_chopping_strs = sorted(chopping_str_by_domain.values(), key=lambda x: int(x.split('-')[0]))
+
+    # convert to string (join domains with ",")
+    chopping_str = ','.join(sorted_domain_chopping_strs)
+
+    result = PredictionResult(pdb_path=pdb_path,
+                                sequence_md5=model_structure_md5,
+                                nres=len(model_structure_seq),
+                                ndom=len(chopping_str_by_domain),
+                                chopping=chopping_str,
+                                uncertainty=uncertainty)
 
     runtime = time.time() - start
     LOG.info(f"Runtime: {round(runtime, 3)}s")
-    return prediction_results
+    return result
 
 
 def write_pymol_script(results: List[PredictionResult],
@@ -250,7 +300,9 @@ def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
     for res in prediction_results:
         row = {
             'chain_id': res.chain_id,
-            'domain_id': res.domain_id,
+            'sequence_md5': res.sequence_md5,
+            'nres': res.nres,
+            'ndom': res.ndom,
             'chopping': res.chopping,
             'uncertainty': f'{res.uncertainty:.3g}',
         }
@@ -287,14 +339,15 @@ def main(args):
             
             pdb_path = os.path.join(structure_dir, fname)
             LOG.info(f"Making prediction for file {fname}")
-            _results = predict(model, pdb_path)
-            prediction_results.extend(_results)
-            write_csv_results(csv_writer, _results)
+            result = predict(model, pdb_path)
+            prediction_results.append(result)
+            write_csv_results(csv_writer, [result])
             if args.pymol_visual:
-                write_pymol_script(results=_results, save_dir=outer_save_dir)
+                write_pymol_script(results=[result], save_dir=outer_save_dir)
     elif input_method == 'structure_file':
-        prediction_results = predict(model, args.structure_file)
-        write_csv_results(csv_writer, prediction_results)
+        result = predict(model, args.structure_file)
+        prediction_results.append(result)
+        write_csv_results(csv_writer, [result])
         if args.pymol_visual:
             write_pymol_script(results=prediction_results, save_dir=outer_save_dir)
     else:
