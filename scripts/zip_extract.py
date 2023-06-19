@@ -9,7 +9,7 @@ from zipfile import ZipFile
 import click
 
 # for info
-CS_ZIP_DIR = '/SAN/bioinf/afdb_domain/zipmaker/zipfiles'
+CS_ZIP_DIR = '/SAN/bioinf/afdb_domain/zipfiles'
 
 @click.command()
 @click.option('--index_file', '-i', 
