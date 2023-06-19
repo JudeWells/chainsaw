@@ -4,16 +4,19 @@ echo "!!!! WARNING: THIS HAS NOT BEEN TESTED YET!!!!"
 
 #
 # Submit chainsaw job array to SGE cluster
-#
+# 
 # usage:
 #   qsub -t 1-16933 chainsaw_submit.ucl_cs.sh
+#
+# Assumes index file has been split into chunks e.g. "zipindex.00000001":
+#   split -a 8 -d 1 -l 1000 data/zipindex zipindex.
 #
 
 #$ -l tmem=23G
 #$ -l h_vmem=23G
 #$ -l h_rt=4:55:00
 #$ -S /bin/bash
-#$ -N chainsaw-bfg
+#$ -N chainsaw-bfj
 #$ -wd /SAN/cath/cath_v4_3_0/alphafold/chainsaw_on_alphafold
 #$ -t 3
 #$ -o /SAN/cath/cath_v4_3_0/alphafold/chainsaw_on_alphafold/qsub/logs
@@ -28,20 +31,19 @@ if [[ "$SGE_TASK_ID" == "undefined" ]]; then
 fi
 
 CATH_VERSION=v4_3_0
-ZIP_DIR=/SAN/bioinf/afdb_domain/zipmaker/zipfiles
+ZIP_DIR=/SAN/bioinf/afdb_domain/zipfiles
 HOME_DIR=/home/$USER
 SHARED_REPO=$HOME_DIR/github/chainsaw
 ZIP_EXTRACT=$SHARED_REPO/scripts/zip_extract.py
 GIT_TAG=main
 
-ZIP_INDEX_ID=zipfile.`expr $SGE_TASK_ID - 1`
 SCRATCH_DIR=/scratch0/$USER
 LOCAL_CODE_DIR=$SCRATCH_DIR/$JOB_NAME
 LOCAL_CHAINSAW_HOME=$LOCAL_CODE_DIR/chainsaw
 LOCAL_TASK_DIR=$SCRATCH_DIR/$JOB_NAME-$JOB_ID-$SGE_TASK_ID
 
 # assumes the zip index file has been split into chunks (named 'zipindex.00000001')
-ZIP_INDEX_FILE=${SGE_O_WORKDIR}/data/zipindex.`printf "%08d" $ZIP_INDEX_ID`
+ZIP_INDEX_FILE=${SGE_O_WORKDIR}/data/zipindex.`printf "%08d" $SGE_TASK_ID`
 RESULTS_FILE=${SGE_O_WORKDIR}/results/${ZIP_INDEX_FILE}.results.csv
 
 if [ -e "${ZIP_INDEX_FILE}" ]
