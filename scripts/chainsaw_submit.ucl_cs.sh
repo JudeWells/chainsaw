@@ -33,7 +33,7 @@ fi
 CATH_VERSION=v4_3_0
 ZIP_DIR=/SAN/bioinf/afdb_domain/zipfiles
 HOME_DIR=/home/$USER
-SHARED_REPO=$HOME_DIR/github/chainsaw
+SHARED_REPO="${SHARED_REPO:-/home/ucbcisi/work/2023_06_19.af_chainsaw_bfj}"
 ZIP_EXTRACT=$SHARED_REPO/scripts/zip_extract.py
 GIT_TAG=main
 
