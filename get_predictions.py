@@ -230,8 +230,11 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
     names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
     uncertainty = uncertainty_array[0]
 
-    names = names_str.split('|')
-    bounds = bounds_str.split('|')
+    if names_str == "":
+        names = bounds = ()
+    else:
+        names = names_str.split('|')
+        bounds = bounds_str.split('|')
 
     assert len(names) == len(bounds)
 
@@ -252,10 +255,14 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
     # convert to string (join domains with ",")
     chopping_str = ','.join(sorted_domain_chopping_strs)
 
+    num_domains = len(chopping_str_by_domain)
+    if num_domains == 0:
+        chopping_str = None
+
     result = PredictionResult(pdb_path=pdb_path,
                                 sequence_md5=model_structure_md5,
                                 nres=len(model_structure_seq),
-                                ndom=len(chopping_str_by_domain),
+                                ndom=num_domains,
                                 chopping=chopping_str,
                                 uncertainty=uncertainty)
 
@@ -303,8 +310,8 @@ def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
             'sequence_md5': res.sequence_md5,
             'nres': res.nres,
             'ndom': res.ndom,
-            'chopping': res.chopping,
-            'uncertainty': f'{res.uncertainty:.3g}',
+            'chopping': res.chopping if not res.chopping is None else 'NULL',
+            'uncertainty': f'{res.uncertainty:.3g}' if not res.uncertainty is None else 'NULL',
         }
         csv_writer.writerow(row)
 
