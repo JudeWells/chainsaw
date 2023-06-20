@@ -12,7 +12,6 @@ import logging
 from Bio.PDB.MMCIFParser import MMCIFParser
 from Bio.PDB import PDBIO
 
-import logging
 LOG = logging.getLogger(__name__)
 
 
@@ -43,7 +42,8 @@ def int_to_chain(i, base=62):
         return int_to_chain(quot - 1, base) + letter
 
 
-class OutOfChainsError(Exception): pass
+class OutOfChainsError(Exception): 
+    pass
 
 
 def rename_chains(structure):

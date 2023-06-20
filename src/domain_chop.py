@@ -121,7 +121,7 @@ class PairwiseDomainPredictor(nn.Module):
             if start_idx >= 2:
                 os.remove(os.path.join(self.checkpoint_dir, f"weights.{start_idx-1}.pt"))
         else:
-            torch.save(self.model.state_dict(), os.path.join(self.checkpoint_dir, f'weights.pt'))
+            torch.save(self.model.state_dict(), os.path.join(self.checkpoint_dir, 'weights.pt'))
 
         if self.n_checkpoints_to_average > 1:
             # self.model.to("cpu")  # free up gpu memory for average model
@@ -188,7 +188,8 @@ class PairwiseDomainPredictor(nn.Module):
         x = x.to(self.device)
         y_pred = self.predict_pairwise(x)
         domain_dicts, uncertainty = self.domains_from_pairwise(y_pred)
-        y_pred_from_domains = np.array([make_pair_labels(n_res=x.shape[-1], domain_dict=d_dict) for d_dict in domain_dicts])
+        y_pred_from_domains = np.array(
+            [make_pair_labels(n_res=x.shape[-1], domain_dict=d_dict) for d_dict in domain_dicts])
         y_pred_from_domains = torch.tensor(y_pred_from_domains).to(self.device)
         if self.x_has_padding_mask:
             x[:, -2, :, :] = y_pred # assumes that last dimension is padding mask

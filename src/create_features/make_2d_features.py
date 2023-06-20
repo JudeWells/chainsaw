@@ -4,12 +4,11 @@ from itertools import product
 
 import numpy as np
 
-LOG = logging.getLogger(__name__)
-
 import warnings
 from Bio.PDB.PDBExceptions import PDBConstructionWarning
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
+LOG = logging.getLogger(__name__)
 
 """
 This script creates the 2d features: PAE, Distance matrix and alignment flags and also the 2d pairwise domain labels
