@@ -310,8 +310,8 @@ def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
             'sequence_md5': res.sequence_md5,
             'nres': res.nres,
             'ndom': res.ndom,
-            'chopping': res.chopping if not res.chopping is None else 'NULL',
-            'uncertainty': f'{res.uncertainty:.3g}' if not res.uncertainty is None else 'NULL',
+            'chopping': res.chopping if res.chopping is not None else 'NULL',
+            'uncertainty': f'{res.uncertainty:.3g}' if res.uncertainty is not None else 'NULL',
         }
         csv_writer.writerow(row)
 

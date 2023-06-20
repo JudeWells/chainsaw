@@ -1,6 +1,5 @@
 import copy
 import json
-import os
 import subprocess
 
 import logging

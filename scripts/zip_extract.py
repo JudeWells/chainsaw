@@ -23,7 +23,7 @@ CS_ZIP_DIR = '/SAN/bioinf/afdb_domain/zipfiles'
 @click.option('--zip_dir', '-z',
               type=click.Path(exists=True, dir_okay=True), 
               default='.',
-              help=f'Directory containing the zip files (default: ".")')
+              help='Directory containing the zip files (default: ".")')
 def run(index_file, out_dir, zip_dir):
 
     index_fieldnames = ['model_id', 'md5sum', 'zipfile']

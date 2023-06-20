@@ -1,6 +1,6 @@
 from pathlib import Path
-from typing import Optional, Union
-from pydantic import BaseModel, validator, Field
+from typing import Optional
+from pydantic import BaseModel, validator
 
 def chain_id_from_pdb_path(pdb_path: Path):
     return pdb_path.stem

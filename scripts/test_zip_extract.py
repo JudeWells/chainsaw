@@ -2,8 +2,6 @@
 Tests for zip_extract.py
 """
 
-import pytest
-import tempfile
 from pathlib import Path
 import zipfile
 from click.testing import CliRunner
@@ -49,7 +47,7 @@ def test_run_basic_usage(tmpdir):
             tmpzip.write(mock_pdb_fname)
 
         test_pdb_path.unlink()
-        assert test_pdb_path.exists() == False
+        assert test_pdb_path.exists() is False
 
         out_dir = Path.cwd() / mock_out_dir
         out_dir.mkdir()
@@ -64,6 +62,6 @@ def test_run_basic_usage(tmpdir):
         assert f'extracting: {mock_pdb_fname}' in result.output
 
         out_pdb_path = out_dir / mock_pdb_fname
-        assert out_pdb_path.exists() == True
+        assert out_pdb_path.exists() is True
         with out_pdb_path.open('r') as f:
             assert f.read() == mock_pdb_contents

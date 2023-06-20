@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from src.domain_assignment.sparse_lowrank import greedy_V, nll_loss
+from src.domain_assignment.sparse_lowrank import greedy_V
 
 
 class BaseAssigner:
@@ -33,7 +33,8 @@ class SparseLowRank(BaseAssigner):
 
 
     def assign_domains(self, y_pred):
-        V, loss = greedy_V(y_pred, N_iters=self.N_iters, K_init=self.K_init, cost_type=self.cost_type)  # N x K, columns are then indicator vectors
+        # N x K, columns are then indicator vectors
+        V, loss = greedy_V(y_pred, N_iters=self.N_iters, K_init=self.K_init, cost_type=self.cost_type)
         K = V.shape[-1]
         scaled_loss = loss / y_pred.shape[0] ** 2 # used to reprepsent the uncertainty
         # throw away small clusters

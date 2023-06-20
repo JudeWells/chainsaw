@@ -2,14 +2,11 @@
 
 Only first two require factories.
 """
-import copy
 import os
 
 import pandas as pd
-import torch
 
 import logging
-LOG = logging.getLogger(__name__)
 
 from src import constants, factories
 from src.domain_chop import PairwiseDomainPredictor
@@ -18,6 +15,8 @@ from src.models.rosetta import trRosettaNetwork
 from src.domain_assignment.assigners import SparseLowRank
 from src.utils.torch_utils import get_torch_device
 from src.utils import common as common_utils
+
+LOG = logging.getLogger(__name__)
 
 
 def get_assigner(config):

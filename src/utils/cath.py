@@ -241,7 +241,8 @@ def cath_split_ids(
         d = json.load(f)
 
     if exclude_missing_feats:
-        featurised_chain_ids = set([c.replace(".npz", "") for c in get_ids(feature_dir=feature_dir, label_dir=label_dir)])
+        featurised_chain_ids = set([
+            c.replace(".npz", "") for c in get_ids(feature_dir=feature_dir, label_dir=label_dir)])
         LOG.info(list(featurised_chain_ids)[:10])
 
     featurised_split_ids = {}
