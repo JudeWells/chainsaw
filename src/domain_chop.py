@@ -207,7 +207,7 @@ class PairwiseDomainPredictor(nn.Module):
             helix, sheet = x[1], x[2]
             diag_helix = np.diagonal(helix)
             diag_sheet = np.diagonal(sheet)
-            ss_residues = list(np.where(diag_helix == 1)[0]) + list(np.where(diag_sheet == 1)[0])
+            ss_residues = list(np.where(diag_helix > 0)[0]) + list(np.where(diag_sheet > 0)[0])
 
             domain_dict = self.trim_disordered_boundaries(domain_dict, ss_residues)
 
@@ -261,14 +261,19 @@ class PairwiseDomainPredictor(nn.Module):
         """
         new_domain_dict = {}
         for dname, res in domain_dict.items():
-            helix = x[1][res, :][:, res]
-            strand = x[2][res, :][:, res]
-            helix = helix[np.any(helix, axis=1)]
-            strand = strand[np.any(strand, axis=1)]
-            n_helix = len(set(["".join([str(int(i)) for i in row]) for row in helix]))
-            n_sheet = len(set(["".join([str(int(i)) for i in row]) for row in strand]))
             if dname == "linker":
                 continue
+            helix = x[1][res, :][:, res]
+            strand = x[2][res, :][:, res]
+            if hasattr(self, "ss_mod") and self.ss_mod:
+                # ss_mod features have value 2 on the boundary of the ss component
+                n_helix = sum(np.diag(helix) == 2) / 2
+                n_sheet = sum(np.diag(strand) == 2) / 2
+            else:
+                helix = helix[np.any(helix, axis=1)]
+                strand = strand[np.any(strand, axis=1)]
+                n_helix = len(set(["".join([str(int(i)) for i in row]) for row in helix]))
+                n_sheet = len(set(["".join([str(int(i)) for i in row]) for row in strand]))
             if len(res) == 0:
                 continue
             if n_helix + n_sheet < self.min_ss_components:

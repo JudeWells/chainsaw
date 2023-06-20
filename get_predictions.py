@@ -48,9 +48,36 @@ def setup_logging():
                     format='%(asctime)s | %(levelname)s | %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
 
+def add_lines_to_ss_features(ss):
+    """
+    Adds lines to the ss
+    """
+    ss_lines = np.zeros_like(ss)
+    diag = np.diag(ss)
+    if max(diag) == 0:
+        return ss
+    padded_diag = np.zeros(len(diag) + 2)
+    padded_diag[1:-1] = diag
+    diff_before = diag - padded_diag[:-2]
+    diff_after = diag - padded_diag[2:]
+    start_res = np.where(diff_before == 1)[0]
+    end_res = np.where(diff_after == 1)[0]
+    ss_lines[start_res, :] = 1
+    ss_lines[:, start_res] = 1
+    ss_lines[end_res, :] = 1
+    ss_lines[:, end_res] = 1
+    return ss_lines + ss
+
+def modify_secondary_structure(x):
+    new_helix = add_lines_to_ss_features(x[1])
+    new_sheet = add_lines_to_ss_features(x[2])
+    x[1] = new_helix
+    x[2] = new_sheet
+    return x
+
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
                                    renumber_pdbs=True, add_recycling=True, add_mask=False,
-                                   stride_path=STRIDE_EXE,
+                                   stride_path=STRIDE_EXE, ss_mod=False,
                                    *,
                                    model_structure: Bio.PDB.Structure=None,
                                    ):
@@ -84,6 +111,9 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
         ss_filepath = pdb_path + '_ss.txt'
         calculate_ss(output_pdb_path, chain, stride_path, ssfile=ss_filepath)
         helix, strand = make_ss_matrix(ss_filepath, nres=dist_matrix.shape[-1])
+        if ss_mod:
+            helix = add_lines_to_ss_features(helix)
+            strand = add_lines_to_ss_features(strand)
         if renumber_pdbs:
             os.remove(output_pdb_path)
         os.remove(ss_filepath)
@@ -170,13 +200,15 @@ def get_input_method(args):
         raise ValueError('No input method provided')
 
 def load_model(*, model_dir: str, remove_disordered_domain_threshold: float = 0.35,
-                    min_ss_components: int = 2, min_domain_length: int = 30):
+                    min_ss_components: int = 2, min_domain_length: int = 30, ss_mod: bool = False):
     config = common_utils.load_json(os.path.join(model_dir, "config.json"))
     config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
     config["learner"]["post_process_domains"] = True
     config["learner"]["min_ss_components"] = min_ss_components
     config["learner"]["min_domain_length"] = min_domain_length
     learner = pairwise_predictor(config["learner"], output_dir=model_dir)
+    if ss_mod:
+        learner.ss_mod = True
     learner.eval()
     learner.load_checkpoints()
     return learner
@@ -208,7 +240,7 @@ def convert_domain_dict_strings(domain_dict):
     return '|'.join(domain_names), '|'.join(domain_bounds)
 
 
-def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
+def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False) -> List[PredictionResult]:
     """
     Makes the prediction and returns a list of PredictionResult objects
     """
@@ -224,7 +256,9 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
                                        chain=pdbchain, 
                                        secondary_structure=True, 
                                        renumber_pdbs=renumber_pdbs, 
-                                       model_structure=model_structure)
+                                       model_structure=model_structure,
+                                       ss_mod=ss_mod,
+                                       add_recycling=model.max_recycles > 0)
 
     A_hat, domain_dict, uncertainty_array = model.predict(x)
     names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
@@ -264,16 +298,15 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
     return result
 
 
-def write_pymol_script(results: List[PredictionResult],
+def write_pymol_script(result: PredictionResult,
                        save_dir: Path,
                        default_chain_id="A"):
 
     # group the results by pdb_path
     results_by_pdb_path = {}
-    for result in results:
-        if result.pdb_path.name not in results_by_pdb_path:
-            results_by_pdb_path[result.pdb_path.name] = []
-        results_by_pdb_path[result.pdb_path.name].append(result)
+    if result.pdb_path.name not in results_by_pdb_path:
+        results_by_pdb_path[result.pdb_path.name] = []
+    results_by_pdb_path[result.pdb_path.name].append(result)
 
     for pdb_filename, results in results_by_pdb_path.items():
 
