@@ -61,7 +61,8 @@ def get_true_boundary_res(domain_dict):
 
 def boundary_distance_score(domains, boundaries):
     pred_bounds = pred_domains_to_bounds(domains)
-    dist_to_score = {0:8, 1:7, 2:6, 3:5, 4:4, 5:3, 6:2, 7:1} # distance score as specified in CASP7 paper {distance_to_true_bound:score}
+    # distance score as specified in CASP7 paper {distance_to_true_bound:score}
+    dist_to_score = {0:8, 1:7, 2:6, 3:5, 4:4, 5:3, 6:2, 7:1} 
     score = 0
     # the final score is divided by the number of segments and the maximum score for each boundary
     normalizing_term = 8 * max(len(pred_bounds), boundaries['n_boundaries'])
@@ -70,7 +71,8 @@ def boundary_distance_score(domains, boundaries):
         distance = min(abs(boundaries['boundary_res'] - b))
         if distance < 8:
             scores.append(dist_to_score[distance])
-    # JW adjustment: additional boundaries that can't be mapped to a real bound should not be added to the un-normalized score
+    # JW adjustment: additional boundaries that can't be mapped to a real bound 
+    # should not be added to the un-normalized score
     score = sum(sorted(scores)[-boundaries['n_boundaries']:])
     return score / normalizing_term
 

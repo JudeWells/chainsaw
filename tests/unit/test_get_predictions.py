@@ -2,6 +2,7 @@ import shutil
 import sys
 from pathlib import Path
 
+# ruff: noqa: E402
 REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
 sys.path.append(f"{REPO_ROOT}")
 

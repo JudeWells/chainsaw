@@ -1,8 +1,7 @@
 from pathlib import Path
 import io
-import csv
 from src.models.results import PredictionResult
-from get_predictions import get_csv_writer, write_csv_results, OUTPUT_COLNAMES
+from get_predictions import get_csv_writer, write_csv_results
 
 
 def test_write_csv_results():
@@ -31,7 +30,8 @@ def test_write_csv_results():
     fp.flush()
     fp.seek(0)
 
-    expected_cols = [chain_id, expected_sequence_md5, expected_nres, expected_ndom, expected_chopping_str, expected_uncertainty]
+    expected_cols = [chain_id, expected_sequence_md5, expected_nres, 
+                     expected_ndom, expected_chopping_str, expected_uncertainty]
     actual_text = fp.read().replace('\r\n', '\n')
     assert actual_text == '\t'.join([str(col) for col in expected_cols]) + '\n'
 

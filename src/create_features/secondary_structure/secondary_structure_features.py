@@ -3,7 +3,6 @@ import re
 import subprocess
 import numpy as np
 from pathlib import Path
-import argparse
 
 from src.constants import BASEDIR
 import logging
@@ -75,11 +74,14 @@ def main(chain_ids, pdb_dir, feature_dir, stride_path, reres_path, savedir, job_
                 file_nres = renum_pdb_file(pdb_path, reres_path, output_pdb_path)
                 if nres != file_nres:
                     with open(os.path.join(savedir, 'error.txt'), 'a') as f:
-                        f.write(chain_id + f'residue number mismatch (from features) {nres}, (from pdb file) {file_nres}\n')
+                        msg = f' residue number mismatch (from features) {nres}, (from pdb file) {file_nres}'
+                        f.write(chain_id + msg + '\n')
                 ss_filepath = os.path.join(savedir, f'pdb_ss{job_index}.txt') # this gets overwritten to save memory
                 calculate_ss(output_pdb_path, chain, stride_path, ssfile=ss_filepath)
                 helix, strand = make_ss_matrix(ss_filepath, nres=nres)
-                np.savez_compressed(os.path.join(*[savedir, '2d_features', chain_id + '.npz']), np.stack((features, helix, strand), axis=0))
+                np.savez_compressed(
+                    os.path.join(*[savedir, '2d_features', chain_id + '.npz']), 
+                    np.stack((features, helix, strand), axis=0))
         except Exception as e:
             with open(os.path.join(savedir, 'error.txt'), 'a') as f:
                 f.write(chain_id + str(e) + '\n')

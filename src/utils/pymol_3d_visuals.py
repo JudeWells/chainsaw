@@ -28,7 +28,8 @@ select target, chain {chain}
 as cartoon, target
 set ray_opaque_background,1
 color white, structure_id\n"""
-    color_list = ['green', 'red', 'cyan', 'magenta', 'blue', 'orange', 'dirtyviolet', 'olive', 'limon', 'salmon', 'deepteal', 'yellow', 'sand', 'purpleblue', 'black']
+    color_list = ['green', 'red', 'cyan', 'magenta', 'blue', 'orange', 'dirtyviolet', 
+                  'olive', 'limon', 'salmon', 'deepteal', 'yellow', 'sand', 'purpleblue', 'black']
     color_dict = {}
     names = names.split('|')
     bounds = bounds.split('|')
@@ -48,6 +49,6 @@ color white, structure_id\n"""
     with open(path_to_script, 'w') as filehandle:
         filehandle.write(script_text)
     bash_command = f"{pymol_executable} -c {path_to_script}"
-    status = execute_bash_command(bash_command)
+    execute_bash_command(bash_command)
     os.remove(path_to_script)
 
