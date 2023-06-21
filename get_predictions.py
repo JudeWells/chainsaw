@@ -21,6 +21,7 @@ import sys
 import time
 import torch
 from typing import List
+from scipy.spatial import distance_matrix
 
 import Bio.PDB
 
@@ -68,12 +69,6 @@ def add_lines_to_ss_features(ss):
     ss_lines[:, end_res] = 1
     return ss_lines + ss
 
-def modify_secondary_structure(x):
-    new_helix = add_lines_to_ss_features(x[1])
-    new_sheet = add_lines_to_ss_features(x[2])
-    x[1] = new_helix
-    x[2] = new_sheet
-    return x
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
                                    renumber_pdbs=True, add_recycling=True, add_mask=False,
@@ -128,15 +123,6 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
     return torch.Tensor(stacked_features)
 
 
-def calc_residue_dist(residue_one, residue_two) :
-    """Returns the C-alpha distance between two residues"""
-    try:
-        diff_vector = residue_one["CA"].coord - residue_two["CA"].coord
-        dist = np.sqrt(np.sum(diff_vector * diff_vector))
-    except:
-        dist = 20.0
-    return dist
-
 def get_model_structure(structure_path, chain='A') -> Bio.PDB.Structure:
     """
     Returns the Bio.PDB.Structure object for a given PDB or MMCIF file
@@ -161,22 +147,14 @@ def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') 
     return sequence
 
 
-def calc_dist_matrix(chain) :
-    """Returns a matrix of C-alpha distances between two chains"""
-    distances = np.zeros((len(chain), len(chain)), 'float')
-    for row, residue_one in enumerate(chain):
-        for col, residue_two in enumerate(chain):
-            distances[row, col] = calc_residue_dist(residue_one, residue_two)
-    return distances
 
 def get_distance(structure_model: Bio.PDB.Structure, chain='A'):
-    if chain is not None:
-        residues = [c for c in structure_model[chain].child_list]
-    dist_matrix = calc_dist_matrix(residues) # recycling dimensions are added later
-    x = np.expand_dims(dist_matrix, axis=0)
-    # replace zero values and then invert.
-    x[0][x[0] == 0] = x[0][x[0] > 0].min()  # replace zero values in pae / distance
-    x[0] = x[0] ** (-1)
+    alpha_coords = np.array([residue['CA'].get_coord() for residue in \
+                             structure_model[0][chain].get_residues()])
+    x = distance_matrix(alpha_coords, alpha_coords)
+    x[x == 0] = x[x > 0].min()  # replace zero values in pae / distance
+    x = x ** (-1)
+    x = np.expand_dims(x, axis=0) # todo is batch dimension needed?
     return x
 
 def get_input_method(args):
