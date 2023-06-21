@@ -308,29 +308,19 @@ def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False) -> List[Predictio
 def write_pymol_script(result: PredictionResult,
                        save_dir: Path,
                        default_chain_id="A"):
-
-    # group the results by pdb_path
-    results_by_pdb_path = {}
-    if result.pdb_path.name not in results_by_pdb_path:
-        results_by_pdb_path[result.pdb_path.name] = []
-    results_by_pdb_path[result.pdb_path.name].append(result)
-
-    for pdb_filename, results in results_by_pdb_path.items():
-
-        names = "|".join([result.domain_id for result in results])
-        bounds = "|".join([result.chopping for result in results])
-        fname = Path(pdb_filename).stem
-
-        LOG.info(f"Generating pymol script for {fname} ({len(results)} domains: {bounds})")
-        generate_pymol_image(
-            pdb_path=str(results[0].pdb_path),
-            chain=default_chain_id,
-            names=names,
-            bounds=bounds,
-            image_out_path=os.path.join(str(save_dir), f'{fname}.png'),
-            path_to_script=os.path.join(str(save_dir), 'image_gen.pml'),
-            pymol_executable=PYMOL_EXE,
-        )
+    if result.chopping is None:
+        chopping = ''
+    else:
+        chopping = result.chopping
+    os.makedirs(save_dir, exist_ok=True)
+    generate_pymol_image(
+        pdb_path=str(result.pdb_path),
+        chain=default_chain_id,
+        chopping=chopping,
+        image_out_path=os.path.join(str(save_dir), f'{result.pdb_path.name}.png'),
+        path_to_script=os.path.join(str(save_dir), 'image_gen.pml'),
+        pymol_executable=PYMOL_EXE,
+    )
 
 
 def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
