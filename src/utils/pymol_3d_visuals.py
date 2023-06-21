@@ -7,7 +7,7 @@ LOG = logging.getLogger(__name__)
 
 
 def generate_pymol_image(pdb_path, chain, chopping, image_out_path, path_to_script,
-                         pymol_executable='/Applications/PyMOL.app/Contents/MacOS/PyMOL'):
+                         pymol_executable):
     """
     This function generates a pymol script which describes how one protein should be visualized
     and saved as a png file. Script is then executed via subprocess.
@@ -46,5 +46,6 @@ color white, structure_id\n"""
         filehandle.write(script_text)
     bash_command = f"{pymol_executable} -c {path_to_script}"
     status = subprocess.run(bash_command.split(), timeout=60)
+    os.remove(path_to_script)
     return status
 

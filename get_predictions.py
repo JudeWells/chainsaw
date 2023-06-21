@@ -150,7 +150,7 @@ def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') 
 
 def get_distance(structure_model: Bio.PDB.Structure, chain='A'):
     alpha_coords = np.array([residue['CA'].get_coord() for residue in \
-                             structure_model[0][chain].get_residues()])
+                             structure_model[chain].get_residues()])
     x = distance_matrix(alpha_coords, alpha_coords)
     x[x == 0] = x[x > 0].min()  # replace zero values in pae / distance
     x = x ** (-1)
@@ -283,24 +283,6 @@ def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False) -> List[Predictio
     return result
 
 
-def write_pymol_script(result: PredictionResult,
-                       save_dir: Path,
-                       default_chain_id="A"):
-    if result.chopping is None:
-        chopping = ''
-    else:
-        chopping = result.chopping
-    os.makedirs(save_dir, exist_ok=True)
-    generate_pymol_image(
-        pdb_path=str(result.pdb_path),
-        chain=default_chain_id,
-        chopping=chopping,
-        image_out_path=os.path.join(str(save_dir), f'{result.pdb_path.name}.png'),
-        path_to_script=os.path.join(str(save_dir), 'image_gen.pml'),
-        pymol_executable=PYMOL_EXE,
-    )
-
-
 def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
     """
     Render list of PredictionResult results to file pointer
@@ -322,6 +304,20 @@ def get_csv_writer(file_pointer):
                                 delimiter='\t')
     return csv_writer
 
+def run_single_pred(pdb_path, model, csv_writer, outer_save_dir, pymol_visual=False):
+    result = predict(model, pdb_path)
+    write_csv_results(csv_writer, [result])
+    if pymol_visual:
+        generate_pymol_image(
+            pdb_path=str(result.pdb_path),
+            chain='A',
+            chopping=result.chopping or '',
+            image_out_path=os.path.join(str(outer_save_dir), f'{result.pdb_path.name.replace(".pdb", "")}.png'),
+            path_to_script=os.path.join(str(outer_save_dir), 'image_gen.pml'),
+            pymol_executable=PYMOL_EXE,
+        )
+    return result
+
 
 def main(args):
     outer_save_dir = args.save_dir
@@ -333,7 +329,6 @@ def main(args):
         min_domain_length=args.min_domain_length,
     )
     os.makedirs(outer_save_dir, exist_ok=True)
-
     prediction_results = []
     csv_writer = get_csv_writer(args.output)
     csv_writer.writeheader()
@@ -344,24 +339,17 @@ def main(args):
             LOG.debug(f"Checking file {fname} (suffix: {suffix}) ..")
             if suffix not in ACCEPTED_STRUCTURE_FILE_SUFFIXES:
                 continue
-            
             pdb_path = os.path.join(structure_dir, fname)
             LOG.info(f"Making prediction for file {fname}")
-            result = predict(model, pdb_path)
+            result = run_single_pred(pdb_path, model, csv_writer,
+                                     outer_save_dir, pymol_visual=args.pymol_visual)
             prediction_results.append(result)
-            write_csv_results(csv_writer, [result])
-            if args.pymol_visual:
-                write_pymol_script(results=[result], save_dir=outer_save_dir)
     elif input_method == 'structure_file':
-        result = predict(model, args.structure_file)
+        result = run_single_pred(args.structure_file, model, csv_writer,
+                                 outer_save_dir, pymol_visual=args.pymol_visual)
         prediction_results.append(result)
-        write_csv_results(csv_writer, [result])
-        if args.pymol_visual:
-            write_pymol_script(results=prediction_results, save_dir=outer_save_dir)
     else:
         raise NotImplementedError('Not implemented yet')
-
-
 
 
 def parse_args():
