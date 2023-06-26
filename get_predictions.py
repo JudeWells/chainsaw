@@ -336,7 +336,12 @@ def main(args):
     os.makedirs(outer_save_dir, exist_ok=True)
     output_path = Path(args.output).absolute()
 
-    prediction_results_file = PredictionResultsFile(csv_path=output_path)
+    prediction_results_file = PredictionResultsFile(
+        csv_path=output_path,
+        # use args.allow_append to mean allow_skip and allow_append
+        allow_append=args.allow_append,
+        allow_skip=args.allow_append,
+    )
 
     if input_method == 'structure_directory':
         structure_dir = args.structure_directory
@@ -345,9 +350,15 @@ def main(args):
             LOG.debug(f"Checking file {fname} (suffix: {suffix}) ..")
             if suffix not in ACCEPTED_STRUCTURE_FILE_SUFFIXES:
                 continue
-            
+
+            chain_id = Path(fname).stem
+            result_exists = prediction_results_file.has_result_for_chain_id(chain_id)
+            if result_exists:
+                LOG.info(f"Skipping file {fname} (result for '{chain_id}' already exists)")
+                continue
+
             pdb_path = os.path.join(structure_dir, fname)
-            LOG.info(f"Making prediction for file {fname}")
+            LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
             result = predict(model, pdb_path)
             prediction_results_file.add_result(result)
             if args.pymol_visual:
@@ -381,6 +392,8 @@ def parse_args():
                         help='path to directory containing PDB or MMCIF files')
     parser.add_argument('--structure_file', type=str, default=None,
                         help='path to PDB or MMCIF files')
+    parser.add_argument('--append', '-a', dest='allow_append', action='store_true', default=False, 
+                        help='allow results to be appended to an existing file')
     parser.add_argument('--pdb_id', type=str, default=None, help='single pdb id')
     parser.add_argument('--pdb_id_list_file', type=str, default=None, help='path to file containing uniprot ids')
     parser.add_argument('--save_dir', type=str, default='results', help='path where results and images will be saved')

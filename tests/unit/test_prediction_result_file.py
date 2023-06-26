@@ -6,6 +6,9 @@ from src import errors
 
 @pytest.fixture
 def create_n_mock_results():
+    """
+    Returns a fixture that creates n mock results
+    """
     def _create_n_mock_results(n):
         return [ 
             PredictionResult(
@@ -65,6 +68,7 @@ def test_check_add_repeated_result_raises_error(tmp_path, create_n_mock_results)
     result_file.add_result(results[0])
     with pytest.raises(errors.PredictionResultExistsError) as err:
         result_file.add_result(results[0])
+
 
 
 @pytest.mark.parametrize("allow_append,exception", [
