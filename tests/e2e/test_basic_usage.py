@@ -21,14 +21,15 @@ def test_basic_usage(tmp_path):
     orig_path = Path.cwd()
     script_path = REPO_ROOT / "get_predictions.py"
 
+    results_file = tmp_path / "results.tsv"
+
     # make sure we can run this in an isolated directory
-    results_output = None
     try:
         os.chdir(str(tmp_path))
         # os.chdir(str(orig_path))
-        cmd_args = ["python", str(script_path), "--structure_file", str(example_structure_path)]
+        cmd_args = ["python", str(script_path), "--structure_file", str(example_structure_path), "-o", str(results_file)]
         completed_process = subprocess.run(cmd_args, check=True, capture_output=True)
-        results_output = completed_process.stdout.decode().strip()
+        results_output = results_file.read_text().strip()
     except subprocess.CalledProcessError as e:
         print(f"ERROR: CMD: {e.cmd}")
         print(f"ERROR: STDOUT: {e.stdout.decode()}")
