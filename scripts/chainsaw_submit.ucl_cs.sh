@@ -81,6 +81,10 @@ echo "Running chainsaw ..."
 $PYTHON_EXE $SHARED_REPO/get_predictions.py --structure_directory $LOCAL_PDB_DIR > $RESULTS_FILE
 echo
 
+echo "Removing local temp dir ..."
+rm -rf $LOCAL_TASK_DIR
+echo
+
 echo "DATE_FINISHED   : "`date`
 echo "JOB_COMPLETE"
 
