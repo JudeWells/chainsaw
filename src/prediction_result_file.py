@@ -59,9 +59,10 @@ class PredictionResultsFile:
 
     def _init(self):
         if self.csv_path.exists():
-            LOG.warning(f"file '{self.csv_path}' already exists (allow_append={self.allow_append}))")
+            msg = f"file '{self.csv_path}' already exists (allow_append={self.allow_append}))"
+            LOG.warning(msg)
             if not self.allow_append:
-                raise FileExistsError(f"file '{self.csv_path}' already exists")
+                raise FileExistsError(msg)
             self._read_results()
 
     def _read_results(self):
@@ -122,16 +123,22 @@ class PredictionResultsFile:
 
     def has_result(self, result: PredictionResult):
         """
-        Check if the result already exists in the file
+        Check if the prediction result already exists in the file
         """
-        msg = (
-            f"checking if result '{result.chain_id}' exists "
-            f"({len(self._results_by_id)} results, {len(self._results_by_id)} unflushed results)"
-        )
-        LOG.debug(msg)
-        if result.chain_id in self._results_by_id:
+        return self.has_result_for_chain_id(result.chain_id)
+
+    def has_result_for_chain_id(self, chain_id: str):
+        """
+        Check if the chain_id already exists in the file
+        """
+        # msg = (
+        #     f"checking if result '{chain_id}' exists "
+        #     f"({len(self._results_by_id)} results, {len(self._results_by_id)} unflushed results)"
+        # )
+        # LOG.debug(msg)
+        if chain_id in self._results_by_id:
             return True
-        if result.chain_id in self._unflushed_results_by_id:
+        if chain_id in self._unflushed_results_by_id:
             return True
 
         return False
