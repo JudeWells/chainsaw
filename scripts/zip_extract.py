@@ -26,7 +26,7 @@ CS_ZIP_DIR = '/SAN/bioinf/afdb_domain/zipfiles'
               help='Directory containing the zip files (default: ".")')
 def run(index_file, out_dir, zip_dir):
 
-    index_fieldnames = ['model_id', 'md5sum', 'zipfile']
+    index_fieldnames = ['model_id', 'nres', 'md5sum', 'zipfile']
 
     index_file = Path(index_file).absolute()
     out_dir = Path(out_dir).absolute()
