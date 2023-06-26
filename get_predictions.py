@@ -49,14 +49,15 @@ def setup_logging():
                     format='%(asctime)s | %(levelname)s | %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
 
-def add_lines_to_ss_features(ss):
+def make_boundary_matrix(ss):
     """
-    Adds lines to the ss
+    makes a matrix where  the boundary residues
+    of the sec struct component are 1
     """
     ss_lines = np.zeros_like(ss)
     diag = np.diag(ss)
     if max(diag) == 0:
-        return ss
+        return ss_lines
     padded_diag = np.zeros(len(diag) + 2)
     padded_diag[1:-1] = diag
     diff_before = diag - padded_diag[:-2]
@@ -67,7 +68,7 @@ def add_lines_to_ss_features(ss):
     ss_lines[:, start_res] = 1
     ss_lines[end_res, :] = 1
     ss_lines[:, end_res] = 1
-    return ss_lines + ss
+    return ss_lines
 
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
@@ -107,13 +108,16 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
         calculate_ss(output_pdb_path, chain, stride_path, ssfile=ss_filepath)
         helix, strand = make_ss_matrix(ss_filepath, nres=dist_matrix.shape[-1])
         if ss_mod:
-            helix = add_lines_to_ss_features(helix)
-            strand = add_lines_to_ss_features(strand)
+            helix_boundaries = make_boundary_matrix(helix)
+            strand_boundaries = make_boundary_matrix(strand)
         if renumber_pdbs:
             os.remove(output_pdb_path)
         os.remove(ss_filepath)
     LOG.info(f"Distance matrix shape: {dist_matrix.shape}, SS matrix shape: {helix.shape}")
-    stacked_features = np.stack((dist_matrix[0], helix, strand), axis=0)
+    if ss_mod:
+        stacked_features = np.stack((dist_matrix[0], helix, strand, helix_boundaries, strand_boundaries), axis=0)
+    else:
+        stacked_features = np.stack((dist_matrix[0], helix, strand), axis=0)
     if add_recycling:
         recycle_dimensions = np.zeros([2, n_res, n_res]).astype(np.float32)
         stacked_features = np.concatenate((stacked_features, recycle_dimensions), axis=0)

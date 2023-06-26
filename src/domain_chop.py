@@ -254,6 +254,7 @@ class PairwiseDomainPredictor(nn.Module):
         new_domain_dict["linker"] = domain_dict["linker"]
         return new_domain_dict
 
+
     def remove_domains_with_few_ss_components(self, domain_dict, x):
         """
         Remove domains where number of ss components is less than minimum
@@ -264,13 +265,29 @@ class PairwiseDomainPredictor(nn.Module):
         for dname, res in domain_dict.items():
             if dname == "linker":
                 continue
-            helix = x[1][res, :][:, res]
-            strand = x[2][res, :][:, res]
+            res = sorted(res)
             if hasattr(self, "ss_mod") and self.ss_mod:
                 # ss_mod features have value 2 on the boundary of the ss component
-                n_helix = sum(np.diag(helix) == 2) / 2
-                n_sheet = sum(np.diag(strand) == 2) / 2
+                helix_boundary_diag = np.diagonal(x[3][res,:][:,res])
+                strand_boundary_diag = np.diagonal(x[4][res,:][:,res])
+                helix_boundaries = sum(helix_boundary_diag == 1)
+                sheet_boundaries = sum(strand_boundary_diag == 1)
+                d_start = min(res)
+                d_end = max(res)
+                # adjust for cases where domain split occurrs within a single ss component
+                if x[1, d_start, d_start] == 1 and helix_boundary_diag[0] == 0:
+                    helix_boundaries += 1
+                if x[2, d_start, d_start] == 1 and strand_boundary_diag[0] == 0:
+                    sheet_boundaries += 1
+                if x[1, d_end, d_end] == 1 and helix_boundary_diag[-1] == 0:
+                    helix_boundaries += 1
+                if x[2, d_end, d_end] == 1 and strand_boundary_diag[-1] == 0:
+                    sheet_boundaries += 1
+                n_helix = helix_boundaries / 2
+                n_sheet = sheet_boundaries / 2
             else:
+                helix = x[1][res, :][:, res]
+                strand = x[2][res, :][:, res]
                 helix = helix[np.any(helix, axis=1)]
                 strand = strand[np.any(strand, axis=1)]
                 n_helix = len(set(["".join([str(int(i)) for i in row]) for row in helix]))
