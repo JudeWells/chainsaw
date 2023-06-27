@@ -31,6 +31,8 @@ from src.create_features.secondary_structure.secondary_structure_features import
     calculate_ss, make_ss_matrix
 from src.utils.pymol_3d_visuals import generate_pymol_image
 from src.models.results import PredictionResult
+from src.prediction_result_file import PredictionResultsFile
+
 
 LOG = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).parent.resolve()
@@ -332,10 +334,15 @@ def main(args):
         min_domain_length=args.min_domain_length,
     )
     os.makedirs(outer_save_dir, exist_ok=True)
+    output_path = Path(args.output).absolute()
 
-    prediction_results = []
-    csv_writer = get_csv_writer(args.output)
-    csv_writer.writeheader()
+    prediction_results_file = PredictionResultsFile(
+        csv_path=output_path,
+        # use args.allow_append to mean allow_skip and allow_append
+        allow_append=args.allow_append,
+        allow_skip=args.allow_append,
+    )
+
     if input_method == 'structure_directory':
         structure_dir = args.structure_directory
         for idx, fname in enumerate(os.listdir(structure_dir)):
@@ -343,24 +350,29 @@ def main(args):
             LOG.debug(f"Checking file {fname} (suffix: {suffix}) ..")
             if suffix not in ACCEPTED_STRUCTURE_FILE_SUFFIXES:
                 continue
-            
+
+            chain_id = Path(fname).stem
+            result_exists = prediction_results_file.has_result_for_chain_id(chain_id)
+            if result_exists:
+                LOG.info(f"Skipping file {fname} (result for '{chain_id}' already exists)")
+                continue
+
             pdb_path = os.path.join(structure_dir, fname)
-            LOG.info(f"Making prediction for file {fname}")
+            LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
             result = predict(model, pdb_path)
-            prediction_results.append(result)
-            write_csv_results(csv_writer, [result])
+            prediction_results_file.add_result(result)
             if args.pymol_visual:
                 write_pymol_script(results=[result], save_dir=outer_save_dir)
     elif input_method == 'structure_file':
         result = predict(model, args.structure_file)
-        prediction_results.append(result)
-        write_csv_results(csv_writer, [result])
+        prediction_results_file.add_result(result)
         if args.pymol_visual:
-            write_pymol_script(results=prediction_results, save_dir=outer_save_dir)
+            write_pymol_script(results=[result], save_dir=outer_save_dir)
     else:
         raise NotImplementedError('Not implemented yet')
 
-
+    prediction_results_file.flush()
+    LOG.info("DONE")
 
 
 def parse_args():
@@ -371,8 +383,8 @@ def parse_args():
     parser.add_argument('--model_dir', type=str,
                         default=f'{REPO_ROOT}/saved_models/secondary_structure_epoch17/version_2',
                         help='path to model directory must contain model.pt and config.json')
-    parser.add_argument('--output', '-o', type=argparse.FileType('w'), default='-',
-                        help='write results to this file (default: stdout)')
+    parser.add_argument('--output', '-o', type=str, required=True,
+                        help='write results to this file')
     parser.add_argument('--uniprot_id', type=str, default=None, help='single uniprot id')
     parser.add_argument('--uniprot_id_list_file', type=str, default=None,
                         help='path to file containing uniprot ids')
@@ -380,6 +392,8 @@ def parse_args():
                         help='path to directory containing PDB or MMCIF files')
     parser.add_argument('--structure_file', type=str, default=None,
                         help='path to PDB or MMCIF files')
+    parser.add_argument('--append', '-a', dest='allow_append', action='store_true', default=False, 
+                        help='allow results to be appended to an existing file')
     parser.add_argument('--pdb_id', type=str, default=None, help='single pdb id')
     parser.add_argument('--pdb_id_list_file', type=str, default=None, help='path to file containing uniprot ids')
     parser.add_argument('--save_dir', type=str, default='results', help='path where results and images will be saved')
