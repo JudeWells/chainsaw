@@ -78,7 +78,7 @@ $ZIP_EXTRACT -i $ZIP_INDEX_FILE -z $ZIP_DIR -o $LOCAL_PDB_DIR
 echo "...DONE"
 
 echo "Running chainsaw ..."
-$PYTHON_EXE $SHARED_REPO/get_predictions.py --structure_directory $LOCAL_PDB_DIR > $RESULTS_FILE
+$PYTHON_EXE $SHARED_REPO/get_predictions.py --structure_directory $LOCAL_PDB_DIR -o $RESULTS_FILE
 echo
 
 echo "Removing local temp dir ..."
