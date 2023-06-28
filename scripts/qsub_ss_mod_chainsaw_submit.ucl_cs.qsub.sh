@@ -4,7 +4,6 @@
 #$ -l h_rt=40:00:00
 #$ -l scratch0free=10G
 #$ -l tscratch=10G
-#$ -P cath
 #$ -S /bin/bash
 #$ -N chsaw-ss_mod
 #$ -e ./logs
