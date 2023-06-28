@@ -74,11 +74,15 @@ echo "Extracting PDBs ..."
 cd $LOCAL_TASK_DIR
 LOCAL_PDB_DIR=$LOCAL_TASK_DIR/pdb
 mkdir -p $LOCAL_PDB_DIR
-$ZIP_EXTRACT -i $ZIP_INDEX_FILE -z $ZIP_DIR -o $LOCAL_PDB_DIR 
+/usr/bin/time $ZIP_EXTRACT -i $ZIP_INDEX_FILE -z $ZIP_DIR -o $LOCAL_PDB_DIR 
 echo "...DONE"
 
 echo "Running chainsaw ..."
-$PYTHON_EXE $SHARED_REPO/get_predictions.py --structure_directory $LOCAL_PDB_DIR > $RESULTS_FILE
+/usr/bin/time $PYTHON_EXE $SHARED_REPO/get_predictions.py --structure_directory $LOCAL_PDB_DIR -o $RESULTS_FILE
+echo
+
+echo "Removing local temp dir ..."
+rm -rf $LOCAL_TASK_DIR
 echo
 
 echo "DATE_FINISHED   : "`date`

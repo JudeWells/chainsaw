@@ -36,6 +36,7 @@ def test_run_basic_usage(tmpdir):
 
         mock_index_cols = [
             mock_pdb_fname.replace('.pdb', ''), 
+            'mock_nres',
             'mock_md5', 
             mock_zip_fname.replace('.zip', '')]
 

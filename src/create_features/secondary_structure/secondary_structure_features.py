@@ -25,10 +25,14 @@ def calculate_ss(pdbfile, chain, stride_path, ssfile='pdb_ss'):
     with open(ssfile, 'w') as ssout_file:
         args = [stride_path, pdbfile, '-r' + chain]
         LOG.info(f"Running command: {' '.join(args)}")
-        subprocess.run(args, 
-                       stdout=ssout_file, 
-                       stderr=subprocess.DEVNULL, 
-                       check=True)
+        try:
+            subprocess.run(args, 
+                        stdout=ssout_file, 
+                        stderr=subprocess.DEVNULL, 
+                        check=True)
+        except subprocess.CalledProcessError as e:
+            LOG.warning(f"Stride failed on {pdbfile}, creating empty file")
+            pass
 
 def make_ss_matrix(ss_path, nres):
     # create matrices for helix and strad residues where entry ij = 1 if i and j are in the same helix or strand
