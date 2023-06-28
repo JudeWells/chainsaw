@@ -369,7 +369,7 @@ def main(args):
 
             pdb_path = os.path.join(structure_dir, fname)
             LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
-            result = predict(model, pdb_path)
+            result = predict(model, pdb_path, ss_mod=args.ss_mod)
             prediction_results_file.add_result(result)
             if args.pymol_visual:
                 generate_pymol_image(
@@ -381,7 +381,7 @@ def main(args):
                     pymol_executable=PYMOL_EXE,
                 )
     elif input_method == 'structure_file':
-        result = predict(model, args.structure_file)
+        result = predict(model, args.structure_file, ss_mod=args.ss_mod)
         prediction_results_file.add_result(result)
         if args.pymol_visual:
             generate_pymol_image(
@@ -430,6 +430,8 @@ def parse_args():
                              'it will be removed')
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true',
                         help='whether to generate pymol images')
+    parser.add_argument('--ss_mod', dest='ss_mod', action='store_true',
+                        help='whether to use modified secondary structure feature representation')
     args = parser.parse_args()
     return args
 
