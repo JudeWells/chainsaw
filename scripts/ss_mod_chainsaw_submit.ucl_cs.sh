@@ -29,7 +29,7 @@ LOCAL_TASK_DIR=$SCRATCH_DIR/$JOB_NAME-$JOB_ID-$SGE_TASK_ID
 PYTHON_EXE=${SGE_O_WORKDIR}/venv/bin/python3
 
 # assumes the zip index file has been split into chunks (named 'zipindex.00000001')
-ZIP_INDEX_FILE=${SGE_O_WORKDIR}/data/zip_index.`printf "%08d" $SGE_TASK_ID`
+ZIP_INDEX_FILE=$/SAN/bioinf/afdb_domain/datasets/index/all_models_unique_partitions/zip_index.`printf "%08d" $SGE_TASK_ID`
 RESULTS_FILE=${SGE_O_WORKDIR}/results/$(basename $ZIP_INDEX_FILE).results.csv
 
 if [ ! -e "${PYTHON_EXE}" ]

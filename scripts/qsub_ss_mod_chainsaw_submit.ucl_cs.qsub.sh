@@ -9,7 +9,7 @@
 #$ -e ./logs
 #$ -o ./logs
 #$ -j y
-#$ -t 1-18892:1000
+#$ -t 1 #1-18892:1000
 #$ -wd /SAN/cath/cath_v4_3_0/alphafold/chainsaw_on_alphafold/chainsaw
 cat "$0"
 cd /SAN/cath/cath_v4_3_0/alphafold/chainsaw_on_alphafold/chainsaw
