@@ -2,6 +2,7 @@
 .idea/
 __pycache__/
 conv_logs/
+**.ipynb_checkpoints
 *.png
 *.npy
 pdbs/
