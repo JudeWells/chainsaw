@@ -18,10 +18,7 @@ import os
 from pathlib import Path
 import sys
 import time
-import torch
 from typing import List
-
-import Bio.PDB
 
 from src import constants, featurisers
 from src.utils import common as common_utils

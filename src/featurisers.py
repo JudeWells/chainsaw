@@ -96,7 +96,7 @@ def calc_residue_dist(residue_one, residue_two) :
     try:
         diff_vector = residue_one["CA"].coord - residue_two["CA"].coord
         dist = np.sqrt(np.sum(diff_vector * diff_vector))
-    except:
+    except Exception:
         dist = 20.0
     return dist
 

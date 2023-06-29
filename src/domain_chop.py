@@ -77,14 +77,12 @@ class PairwiseDomainPredictor(nn.Module):
             self.loss_function = nn.MSELoss(reduction="none")
 
     def load_checkpoints(self, average=False, old_style=False):
-        start_idx = max(self._epoch - self.n_checkpoints_to_average, 1)
-        end_idx = self._epoch
         if self.n_checkpoints_to_average == 1:
             weights_file = os.path.join(self.checkpoint_dir, "weights.pt")
         else:
             # for e.g. resetting training weights for next training epoch after testing with avg
-            LOG.info(f"Loading last checkpoint (epoch {end_idx})")
-            weights_file = os.path.join(self.checkpoint_dir, f"weights.{end_idx}.pt")
+            LOG.info(f"Loading last checkpoint (epoch {self._epoch})")
+            weights_file = os.path.join(self.checkpoint_dir, f"weights.{self._epoch}.pt")
         LOG.info(f"Loading weights from: {weights_file}")
         state_dict = torch.load(weights_file, map_location=self.device)
         if old_style:

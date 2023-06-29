@@ -8,9 +8,7 @@ import pandas as pd
 
 import logging
 
-from src import constants, factories
 from src.domain_chop import PairwiseDomainPredictor
-from src.loggers import get_versioned_dir
 from src.models.rosetta import trRosettaNetwork
 from src.domain_assignment.assigners import SparseLowRank
 from src.utils import common as common_utils
