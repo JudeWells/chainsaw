@@ -13,7 +13,6 @@ from src.domain_chop import PairwiseDomainPredictor
 from src.loggers import get_versioned_dir
 from src.models.rosetta import trRosettaNetwork
 from src.domain_assignment.assigners import SparseLowRank
-from src.utils.torch_utils import get_torch_device
 from src.utils import common as common_utils
 
 LOG = logging.getLogger(__name__)
@@ -40,7 +39,7 @@ def get_model(config):
 def pairwise_predictor(learner_config, force_cpu=False, output_dir=None):
     model = get_model(learner_config["model"])
     assigner = get_assigner(learner_config["assignment"])
-    device = get_torch_device(force_cpu=force_cpu)
+    device = common_utils.get_torch_device(force_cpu=force_cpu)
     model.to(device)
     kwargs = {k: v for k, v in learner_config.items() if k not in ["model", "assignment"]}
     LOG.info(f"Learner kwargs: {kwargs}")

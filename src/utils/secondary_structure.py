@@ -1,3 +1,13 @@
+"""
+Created by Jude Wells 2023-04-20
+Objective is to create a secondary structure matrix for each protein
+1) renumbers the pdb file (1-indexed)
+2) runs stride to get secondary structure file
+3) parses the secondary structure file to create a matrix of secondary structure
+
+# should take around 3 minutes for 1000 structures
+"""
+
 import os
 import re
 import subprocess
@@ -8,17 +18,6 @@ from src.constants import BASEDIR
 import logging
 LOG = logging.getLogger(__name__)
 
-
-
-"""
-Created by Jude Wells 2023-04-20
-Objective is to create a secondary structure matrix for each protein
-1) renumbers the pdb file (1-indexed)
-2) runs stride to get secondary structure file
-3) parses the secondary structure file to create a matrix of secondary structure
-
-# should take around 3 minutes for 1000 structures
-"""
 
 def calculate_ss(pdbfile, chain, stride_path, ssfile='pdb_ss'):
     assert os.path.exists(pdbfile)
@@ -33,6 +32,7 @@ def calculate_ss(pdbfile, chain, stride_path, ssfile='pdb_ss'):
         except subprocess.CalledProcessError as e:
             LOG.warning(f"Stride failed on {pdbfile}, creating empty file")
             pass
+
 
 def make_ss_matrix(ss_path, nres):
     # create matrices for helix and strad residues where entry ij = 1 if i and j are in the same helix or strand
@@ -54,6 +54,7 @@ def make_ss_matrix(ss_path, nres):
         elif line.startswith('ASG'):
             break
     return helix, strand
+
 
 def renum_pdb_file(pdb_path, output_pdb_path):
     pdb_reres_path = Path(BASEDIR) / 'src/utils/pdb_reres.py'
