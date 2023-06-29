@@ -47,41 +47,6 @@ def pairwise_predictor(learner_config, force_cpu=False, output_dir=None):
     return PairwiseDomainPredictor(model, assigner, device, checkpoint_dir=output_dir, **kwargs)
 
 
-def pretrained_predictor(
-    experiment_name,
-    output_dir,
-    version=None,
-    use_versioning=True,
-    average=False,
-    old_style=False,  # before weight averaging support model checkpoints were handled differently
-    data_dir_map_from=None,
-    use_best_val=False,
-):
-    """Load a saved checkpoint associated with experiment_name.
-
-    N.B. doesn't average checkpoints by default, even if available.
-    """
-    output_dir = os.path.join(output_dir, experiment_name)
-    if use_versioning:
-        # version = None will load last version
-        output_dir, _ = get_versioned_dir(output_dir, version=version, resume=True)
-    config = common_utils.load_json(os.path.join(output_dir, "config.json"))
-    if use_best_val:
-        output_dir = os.path.join(output_dir, "best_val")
-    learner = factories.pairwise_predictor(config["learner"], output_dir=output_dir)
-    learner.eval()
-    learner.load_checkpoints(average=average, old_style=old_style)
-    if data_dir_map_from is not None:
-        # override saved DATA_DIR to local value in relevant config fields
-        # e.g. data_dir_map_from = /SAN/bioinf/domdet
-        config["data"] = {
-            k: v.replace(data_dir_map_from, constants.DATA_DIR) if isinstance(v, str) else v
-            for k, v in config["data"].items()
-        }
-
-    return learner, config
-
-
 def get_test_ids(label_path, feature_path, csv_path=None):
     ids = [id.split('.')[0] for id in set(os.listdir(label_path)).intersection(set(os.listdir(feature_path)))]
     if csv_path is not None:
@@ -95,5 +60,3 @@ def filter_plddt(df_path, ids, threshold=90):
     df = df[df.plddt > threshold]
     ids = [i for i in ids if i in df.casp_id.values]
     return ids
-
-
