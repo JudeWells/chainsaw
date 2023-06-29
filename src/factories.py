@@ -15,6 +15,7 @@ from src.models.rosetta import trRosettaNetwork
 from src.domain_assignment.assigners import SparseLowRank
 from src.utils import common as common_utils
 
+
 LOG = logging.getLogger(__name__)
 
 

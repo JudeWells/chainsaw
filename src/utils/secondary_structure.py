@@ -14,7 +14,7 @@ import subprocess
 import numpy as np
 from pathlib import Path
 
-from src.constants import BASEDIR
+from src.constants import REPO_ROOT
 import logging
 LOG = logging.getLogger(__name__)
 
@@ -57,13 +57,14 @@ def make_ss_matrix(ss_path, nres):
 
 
 def renum_pdb_file(pdb_path, output_pdb_path):
-    pdb_reres_path = Path(BASEDIR) / 'src/utils/pdb_reres.py'
+    pdb_reres_path = REPO_ROOT / 'src/utils/pdb_reres.py'
     with open(output_pdb_path, "w") as output_file:
         subprocess.run(['python', str(pdb_reres_path), pdb_path],
                        stdout=output_file,
                        check=True,
                        text=True)
  
+
 def main(chain_ids, pdb_dir, feature_dir, stride_path, reres_path, savedir, job_index=0):
     os.makedirs(savedir, exist_ok=True)
     os.makedirs(os.path.join(savedir, '2d_features'), exist_ok=True)

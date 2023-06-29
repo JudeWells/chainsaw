@@ -21,22 +21,21 @@ import time
 import torch
 from typing import List
 
-from src import featurisers
+import Bio.PDB
+
+from src import constants, featurisers
 from src.utils import common as common_utils
 from src.factories import pairwise_predictor
 
 from src.utils.pymol_3d_visuals import generate_pymol_image
 from src.models.results import PredictionResult
 from src.prediction_result_file import PredictionResultsFile
-from src.domain_assignment.utils import convert_domain_dict_strings
+from src.domain_assignment.util import convert_domain_dict_strings
 
 
 LOG = logging.getLogger(__name__)
-REPO_ROOT = Path(__file__).parent.resolve()
-STRIDE_EXE = os.environ.get('STRIDE_EXE', str(REPO_ROOT / "stride" / "stride"))
 PYMOL_EXE = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
 OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty']
-
 ACCEPTED_STRUCTURE_FILE_SUFFIXES = ['.pdb', '.cif']
 
 
@@ -282,7 +281,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_dir', type=str,
-                        default=f'{REPO_ROOT}/saved_models/secondary_structure_epoch17/version_2',
+                        default=f'{constants.REPO_ROOT}/saved_models/secondary_structure_epoch17/version_2',
                         help='path to model directory must contain model.pt and config.json')
     parser.add_argument('--output', '-o', type=str, required=True,
                         help='write results to this file')
