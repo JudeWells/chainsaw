@@ -69,15 +69,15 @@ def get_input_method(args):
         raise ValueError('No input method provided')
 
 
-def get_model_structure(structure_path, chain='A') -> Bio.PDB.Structure:
+def get_model_structure(structure_path) -> Bio.PDB.Structure:
     """
     Returns the Bio.PDB.Structure object for a given PDB or MMCIF file
     """
-    chain_id = os.path.split(structure_path)[-1].split('.')[0]
+    structure_id = os.path.split(structure_path)[-1].split('.')[0]
     if structure_path.endswith('.pdb'):
-        structure = Bio.PDB.PDBParser().get_structure(chain_id, structure_path)
+        structure = Bio.PDB.PDBParser().get_structure(structure_id, structure_path)
     elif structure_path.endswith('.cif'):
-        structure = Bio.PDB.MMCIFParser().get_structure(chain_id, structure_path)
+        structure = Bio.PDB.MMCIFParser().get_structure(structure_id, structure_path)
     else:
         raise ValueError(f'Unrecognized file extension: {structure_path}')
     model = structure[0]
@@ -94,8 +94,12 @@ def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') 
     return sequence
 
 
-def load_model(*, model_dir: str, remove_disordered_domain_threshold: float = 0.35,
-                    min_ss_components: int = 2, min_domain_length: int = 30):
+def load_model(
+    model_dir: str,
+    remove_disordered_domain_threshold: float = 0.35,
+    min_ss_components: int = 2,
+    min_domain_length: int = 30,
+):
     config = common_utils.load_json(os.path.join(model_dir, "config.json"))
     config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
     config["learner"]["post_process_domains"] = True
@@ -115,8 +119,8 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
 
     # get model structure metadata
     pdbchain = "A"
-    model_structure = get_model_structure(pdb_path, chain=pdbchain)
-    model_structure_seq = get_model_structure_sequence(model_structure)
+    model_structure = get_model_structure(pdb_path)
+    model_structure_seq = get_model_structure_sequence(model_structure, chain=pdbchain)
     model_structure_md5 = hashlib.md5(model_structure_seq.encode('utf-8')).hexdigest()
 
     x = featurisers.inference_time_create_features(
@@ -139,7 +143,7 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
 
     assert len(names) == len(bounds)
 
-    # gather choppings into segments in domains 
+    # gather choppings into segments in domains
     chopping_segs_by_domain = {}
     for domain_id, chopping in zip(names, bounds):
         if domain_id not in chopping_segs_by_domain:
@@ -160,12 +164,14 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
     if num_domains == 0:
         chopping_str = None
 
-    result = PredictionResult(pdb_path=pdb_path,
-                                sequence_md5=model_structure_md5,
-                                nres=len(model_structure_seq),
-                                ndom=num_domains,
-                                chopping=chopping_str,
-                                uncertainty=uncertainty)
+    result = PredictionResult(
+        pdb_path=pdb_path,
+        sequence_md5=model_structure_md5,
+        nres=len(model_structure_seq),
+        ndom=num_domains,
+        chopping=chopping_str,
+        uncertainty=uncertainty,
+    )
 
     runtime = time.time() - start
     LOG.info(f"Runtime: {round(runtime, 3)}s")
