@@ -13,12 +13,40 @@ import logging
 LOG = logging.getLogger(__name__)
 
 
-def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
-                                   renumber_pdbs=True, add_recycling=True, add_mask=False,
-                                   stride_path=constants.STRIDE_EXE,
-                                   *,
-                                   model_structure: Bio.PDB.Structure=None,
-                                   ):
+def get_model_structure(structure_path) -> Bio.PDB.Structure:
+    """
+    Returns the Bio.PDB.Structure object for a given PDB or MMCIF file
+    """
+    structure_id = os.path.split(structure_path)[-1].split('.')[0]
+    if structure_path.endswith('.pdb'):
+        structure = Bio.PDB.PDBParser().get_structure(structure_id, structure_path)
+    elif structure_path.endswith('.cif'):
+        structure = Bio.PDB.MMCIFParser().get_structure(structure_id, structure_path)
+    else:
+        raise ValueError(f'Unrecognized file extension: {structure_path}')
+    model = structure[0]
+    return model
+
+
+def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
+    """Get sequence of specified chain from parsed PDB/CIF file."""
+    residues = [c for c in structure_model[chain].child_list]
+    _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
+    sequence = ''.join([_3to1[r.get_resname()] for r in residues])
+    return sequence
+
+
+def inference_time_create_features(
+    pdb_path,
+    chain="A",
+    secondary_structure=True,
+    renumber_pdbs=True,
+    add_recycling=True,
+    add_mask=False,
+    stride_path=constants.STRIDE_EXE,
+    *,
+    model_structure: Bio.PDB.Structure=None,
+):
     if pdb_path.endswith(".cif"):
         pdb_path = cif2pdb(pdb_path)
     
