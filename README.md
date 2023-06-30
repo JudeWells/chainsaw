@@ -27,3 +27,6 @@ or
 Note that the output predicted boundaries are based on residue consecutive indexing
 starting from 1 (not based on pdb auth numbers).
 
+## Basic profiling
+
+`pyinstrument get_predictions.py --structure_file example_files/AF-A0A1W2PQ64-F1-model_v4.pdb --output results/test.tsv'

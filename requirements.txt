@@ -21,6 +21,7 @@ pandas==2.0.1
 Pillow==9.5.0
 pluggy==1.0.0
 pydantic==1.10.8
+pyinstrument==4.5.0
 pyparsing==3.0.9
 pytest==7.3.1
 python-dateutil==2.8.2
