@@ -101,7 +101,7 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
 
 
 def calc_residue_dist(residue_one, residue_two) :
-    """Returns the C-alpha distance between two residues"""
+    """Returns the C-alpha distance between two residues."""
     try:
         diff_vector = residue_one["CA"].coord - residue_two["CA"].coord
         dist = np.sqrt(np.sum(diff_vector * diff_vector))
@@ -136,15 +136,16 @@ def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') 
 def calc_dist_matrix(chain) :
     """Returns a matrix of C-alpha distances between two chains"""
     distances = np.zeros((len(chain), len(chain)), 'float')
-    for row, residue_one in enumerate(chain):
-        for col, residue_two in enumerate(chain):
-            distances[row, col] = calc_residue_dist(residue_one, residue_two)
+    # TODO handle cases without ca via a mask
+    calpha_xyz = np.stack([residue["CA"].coord for residue in chain])  # L, 3
+    diffs = calpha_xyz[:, None] - calpha_xyz[None,:]  # L, L
+    distances = np.sqrt(np.sum(diffs*diffs, axis=-1))
     return distances
 
 def get_distance(structure_model: Bio.PDB.Structure, chain='A'):
-    if chain is not None:
-        residues = [c for c in structure_model[chain].child_list]
-    dist_matrix = calc_dist_matrix(residues) # recycling dimensions are added later
+    # n.b. removed if chain is not None and replaced with assert for now
+    assert chain is not None
+    dist_matrix = calc_dist_matrix(structure_model[chain].child_list) # recycling dimensions are added later
     x = np.expand_dims(dist_matrix, axis=0)
     # replace zero values and then invert.
     x[0][x[0] == 0] = x[0][x[0] > 0].min()  # replace zero values in pae / distance
