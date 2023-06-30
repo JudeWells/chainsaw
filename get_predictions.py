@@ -100,15 +100,6 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
     return torch.Tensor(stacked_features)
 
 
-def calc_residue_dist(residue_one, residue_two) :
-    """Returns the C-alpha distance between two residues."""
-    try:
-        diff_vector = residue_one["CA"].coord - residue_two["CA"].coord
-        dist = np.sqrt(np.sum(diff_vector * diff_vector))
-    except:
-        dist = 20.0
-    return dist
-
 def get_model_structure(structure_path, chain='A') -> Bio.PDB.Structure:
     """
     Returns the Bio.PDB.Structure object for a given PDB or MMCIF file

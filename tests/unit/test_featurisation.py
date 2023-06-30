@@ -1,7 +1,20 @@
-import time
+from pathlib import Path
 import Bio.PDB
 import numpy as np
-from get_predictions import get_model_structure, v0_calc_dist_matrix, get_distance
+from get_predictions import get_model_structure, get_distance
+
+REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
+DATA_DIR = REPO_ROOT / "example_files"
+
+
+def calc_residue_dist(residue_one, residue_two) :
+    """Returns the C-alpha distance between two residues."""
+    try:
+        diff_vector = residue_one["CA"].coord - residue_two["CA"].coord
+        dist = np.sqrt(np.sum(diff_vector * diff_vector))
+    except:
+        dist = 20.0
+    return dist
 
 
 def v0_calc_dist_matrix(chain):
@@ -25,8 +38,10 @@ def v0_get_distance(structure_model: Bio.PDB.Structure, chain='A'):
     return x
 
 
-def test_vectorised_distances(pdb_file):
-    model_structure = get_model_structure(pdb_file)
+def test_vectorised_distances():
+    af_id = "AF-A0A1W2PQ64-F1-model_v4"
+    example_structure_path = str(DATA_DIR / f"{af_id}.pdb")
+    model_structure = get_model_structure(example_structure_path)
     expected_distances = v0_get_distance(model_structure)
     distances = get_distance(model_structure)
 
