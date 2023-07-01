@@ -204,33 +204,25 @@ def main(args):
 
     if input_method == 'structure_directory':
         structure_dir = args.structure_directory
-        for idx, fname in enumerate(os.listdir(structure_dir)):
-            suffix = Path(fname).suffix
-            LOG.debug(f"Checking file {fname} (suffix: {suffix}) ..")
-            if suffix not in ACCEPTED_STRUCTURE_FILE_SUFFIXES:
-                continue
+        structure_files = [
+            os.path.join(structure_dir, f) for in os.listdir(structure_dir)
+            if Path(f).suffix in ACCEPTED_STRUCTURE_FILE_SUFFIXES
+        ]
 
-            chain_id = Path(fname).stem
-            result_exists = prediction_results_file.has_result_for_chain_id(chain_id)
-            if result_exists:
-                LOG.info(f"Skipping file {fname} (result for '{chain_id}' already exists)")
-                continue
-
-            pdb_path = os.path.join(structure_dir, fname)
-            LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
-            result = predict(model, pdb_path, ss_mod=args.ss_mod)
-            prediction_results_file.add_result(result)
-            if args.pymol_visual:
-                generate_pymol_image(
-                    pdb_path=str(result.pdb_path),
-                    chain='A',
-                    chopping=result.chopping or '',
-                    image_out_path=os.path.join(str(outer_save_dir), f'{result.pdb_path.name.replace(".pdb", "")}.png'),
-                    path_to_script=os.path.join(str(outer_save_dir), 'image_gen.pml'),
-                    pymol_executable=constants.PYMOL_EXE,
-                )
     elif input_method == 'structure_file':
-        result = predict(model, args.structure_file, ss_mod=args.ss_mod)
+        structure_files = args.structure_file:
+    else:
+        raise NotImplementedError('Not implemented yet')
+
+    for idx, pdb_path in enumerate(structure_files):
+        chain_id = Path(pdb_path).stem  # c.f. PredictionResult, write_csv_results
+        result_exists = prediction_results_file.has_result_for_chain_id(chain_id)
+        if result_exists:
+            LOG.info(f"Skipping file {fname} (result for '{chain_id}' already exists)")
+            continue
+
+        LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
+        result = predict(model, pdb_path, ss_mod=args.ss_mod)
         prediction_results_file.add_result(result)
         if args.pymol_visual:
             generate_pymol_image(
@@ -241,8 +233,6 @@ def main(args):
                 path_to_script=os.path.join(str(outer_save_dir), 'image_gen.pml'),
                 pymol_executable=constants.PYMOL_EXE,
             )
-    else:
-        raise NotImplementedError('Not implemented yet')
 
     prediction_results_file.flush()
     LOG.info("DONE")
@@ -258,12 +248,12 @@ def parse_args():
                         help='path to model directory must contain model.pt and config.json')
     parser.add_argument('--output', '-o', type=str, required=True,
                         help='write results to this file')
-    parser.add_argument('--uniprot_id', type=str, default=None, help='single uniprot id')
+    parser.add_argument('--uniprot_id', type=str, default=None, help='list of uniprot ids', nargs="+")
     parser.add_argument('--uniprot_id_list_file', type=str, default=None,
                         help='path to file containing uniprot ids')
     parser.add_argument('--structure_directory', type=str, default=None,
                         help='path to directory containing PDB or MMCIF files')
-    parser.add_argument('--structure_file', type=str, default=None,
+    parser.add_argument('--structure_file', type=str, default=None, nargs="+",
                         help='path to PDB or MMCIF files')
     parser.add_argument('--append', '-a', dest='allow_append', action='store_true', default=False, 
                         help='allow results to be appended to an existing file')
