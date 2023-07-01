@@ -1,5 +1,10 @@
 #!/bin/bash
 
+#These are optional flags but you probably want them in all jobs
+
+#$ -S /bin/bash
+#$ -j y
+
 #
 # Submit chainsaw job array to SGE cluster
 # 
