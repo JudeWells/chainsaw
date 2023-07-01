@@ -29,7 +29,7 @@ LOCAL_TASK_DIR=$SCRATCH_DIR/$JOB_NAME-$JOB_ID-$SGE_TASK_ID
 PYTHON_EXE=${SGE_O_WORKDIR}/venv/bin/python3
 
 # assumes the zip index file has been split into chunks (named 'zipindex.00000001')
-ZIP_INDEX_FILE=${/SAN/bioinf/afdb_domain/datasets/index/all_models_unique_partitions}/zip_index.`printf "%08d" $SGE_TASK_ID`
+ZIP_INDEX_FILE=/SAN/bioinf/afdb_domain/datasets/index/all_models_unique_partitions/zip_index.$(printf "%08d" $SGE_TASK_ID)
 RESULTS_FILE=${SGE_O_WORKDIR}/results/$(basename $ZIP_INDEX_FILE).results.csv
 
 if [ ! -e "${PYTHON_EXE}" ]
@@ -69,7 +69,7 @@ echo "...DONE"
 
 echo "Loading python ..."
 source /share/apps/source_files/python/python-3.8.5.source
-source ./venv/bin/activate
+# source ./venv/bin/activate
 echo "...DONE"
 
 echo "Extracting PDBs ..."
@@ -81,7 +81,7 @@ echo "...DONE"
 
 echo "Running chainsaw ..."
 /usr/bin/time $PYTHON_EXE $SHARED_REPO/get_predictions.py --structure_directory $LOCAL_PDB_DIR -o $RESULTS_FILE \
-  --ss_mod --model_dir ./saved_models/ss_c_base_no_excl/version_2/epoch_11
+  --ss_mod --model_dir $SHARED_REPO/saved_models/ss_c_base_no_excl/version_2/epoch_11
 echo
 
 echo "Removing local temp dir ..."
