@@ -167,35 +167,35 @@ class PairwiseDomainPredictor(nn.Module):
             uncertainty_list.append(uncertainty)
         return domain_preds, uncertainty_list
 
-    @torch.no_grad()
     def predict(self, x, return_pairwise=True):
-        x = x.to(self.device)
-        for i in range(self.max_recycles):
-            x = self.recycle_predict(x)
-        y_pred = self.predict_pairwise(x)
-        domain_dicts, uncertainty = self.domains_from_pairwise(y_pred)
-        if self.post_process_domains:
-            domain_dicts = self.post_process(domain_dicts, x) # todo move this to domains from pairwise function
-        if return_pairwise:
-            return y_pred, domain_dicts, uncertainty
-        else:
-            return domain_dicts, uncertainty
+        with torch.no_grad():
+            x = x.to(self.device)
+            for i in range(self.max_recycles):
+                x = self.recycle_predict(x)
+            y_pred = self.predict_pairwise(x)
+            domain_dicts, uncertainty = self.domains_from_pairwise(y_pred)
+            if self.post_process_domains:
+                domain_dicts = self.post_process(domain_dicts, x) # todo move this to domains from pairwise function
+            if return_pairwise:
+                return y_pred, domain_dicts, uncertainty
+            else:
+                return domain_dicts, uncertainty
 
-    @torch.no_grad()
     def recycle_predict(self, x):
-        x = x.to(self.device)
-        y_pred = self.predict_pairwise(x)
-        domain_dicts, uncertainty = self.domains_from_pairwise(y_pred)
-        y_pred_from_domains = np.array(
-            [make_pair_labels(n_res=x.shape[-1], domain_dict=d_dict) for d_dict in domain_dicts])
-        y_pred_from_domains = torch.tensor(y_pred_from_domains).to(self.device)
-        if self.x_has_padding_mask:
-            x[:, -2, :, :] = y_pred # assumes that last dimension is padding mask
-            x[:, -3, :, :] = y_pred_from_domains
-        else:
-            x[:, -1, :, :] = y_pred
-            x[:, -2, :, :] = y_pred_from_domains
-        return x
+        with torch.no_grad():
+            x = x.to(self.device)
+            y_pred = self.predict_pairwise(x)
+            domain_dicts, uncertainty = self.domains_from_pairwise(y_pred)
+            y_pred_from_domains = np.array(
+                [make_pair_labels(n_res=x.shape[-1], domain_dict=d_dict) for d_dict in domain_dicts])
+            y_pred_from_domains = torch.tensor(y_pred_from_domains).to(self.device)
+            if self.x_has_padding_mask:
+                x[:, -2, :, :] = y_pred # assumes that last dimension is padding mask
+                x[:, -3, :, :] = y_pred_from_domains
+            else:
+                x[:, -1, :, :] = y_pred
+                x[:, -2, :, :] = y_pred_from_domains
+            return x
 
 
     def post_process(self, domain_dicts, x_batch):
