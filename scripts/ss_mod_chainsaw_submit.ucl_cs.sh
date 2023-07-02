@@ -55,6 +55,15 @@ then
     exit 1
 fi
 
+if [[ ! -z $1 ]]
+then
+    echo "In profile mode"
+    PROFILE=true
+else
+    echo "In standard mode"
+    PROFILE=false
+fi
+
 echo "INDEX_FILE         : $ZIP_INDEX_FILE"
 echo "RESULTS_FILE       : $RESULTS_FILE"
 echo "DATE_STARTED       : "`date`
@@ -84,10 +93,18 @@ mkdir -p $LOCAL_PDB_DIR
 /usr/bin/time $ZIP_EXTRACT -i $ZIP_INDEX_FILE -z $ZIP_DIR -o $LOCAL_PDB_DIR 
 echo "...DONE"
 
-echo "Running chainsaw ..."
-/usr/bin/time $PYTHON_EXE $SHARED_REPO/get_predictions.py --structure_directory $LOCAL_PDB_DIR -o $RESULTS_FILE \
-  --ss_mod --model_dir $SHARED_REPO/saved_models/ss_c_base_no_excl/version_2/epoch_11
-echo
+
+if $PROFILE
+then
+    echo "Profiling chainsaw ..."
+    pyinstrument --show-all -r json -o speed_test/$(basename $ZIP_INDEX_FILE).json $SHARED_REPO/get_predictions.py \
+    --structure_directory $LOCAL_PDB_DIR -o $RESULTS_FILE \
+    --ss_mod --model_dir $SHARED_REPO/saved_models/ss_c_base_no_excl/version_2/epoch_11
+else
+    echo "Running chainsaw ..."
+    /usr/bin/time $PYTHON_EXE $SHARED_REPO/get_predictions.py --structure_directory $LOCAL_PDB_DIR -o $RESULTS_FILE \
+      --ss_mod --model_dir $SHARED_REPO/saved_models/ss_c_base_no_excl/version_2/epoch_11
+fi
 
 echo "Removing local temp dir ..."
 rm -rf $LOCAL_TASK_DIR
