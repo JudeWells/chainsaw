@@ -143,11 +143,11 @@ class PredictionResultsFile:
 
         return False
 
-    def add_result(self, result: PredictionResult):
+    def add_result(self, result: PredictionResult, allow_overwrite=False):
         """
         Add a result to the buffer (and possibly flush the buffer)
         """
-        if self.has_result(result):
+        if self.has_result(result) and not allow_overwrite:
             msg = f"result '{result.chain_id}' already exists in file '{self.csv_path}'"
             raise PredictionResultExistsError(msg)
 

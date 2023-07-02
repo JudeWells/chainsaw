@@ -205,25 +205,25 @@ def main(args):
     if input_method == 'structure_directory':
         structure_dir = args.structure_directory
         structure_files = [
-            os.path.join(structure_dir, f) for in os.listdir(structure_dir)
+            os.path.join(structure_dir, f) for f in os.listdir(structure_dir)
             if Path(f).suffix in ACCEPTED_STRUCTURE_FILE_SUFFIXES
         ]
 
     elif input_method == 'structure_file':
-        structure_files = args.structure_file:
+        structure_files = args.structure_file
     else:
         raise NotImplementedError('Not implemented yet')
 
     for idx, pdb_path in enumerate(structure_files):
         chain_id = Path(pdb_path).stem  # c.f. PredictionResult, write_csv_results
         result_exists = prediction_results_file.has_result_for_chain_id(chain_id)
-        if result_exists:
-            LOG.info(f"Skipping file {fname} (result for '{chain_id}' already exists)")
+        if result_exists and not args.force_rerun:
+            LOG.info(f"Skipping file {pdb_path} (result for '{chain_id}' already exists)")
             continue
 
-        LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
+        LOG.info(f"Making prediction for file {pdb_path} (chain '{chain_id}')")
         result = predict(model, pdb_path, ss_mod=args.ss_mod)
-        prediction_results_file.add_result(result)
+        prediction_results_file.add_result(result, allow_overwrite=args.force_rerun)
         if args.pymol_visual:
             generate_pymol_image(
                 pdb_path=str(result.pdb_path),
@@ -271,6 +271,7 @@ def parse_args():
                         help='whether to generate pymol images')
     parser.add_argument('--ss_mod', dest='ss_mod', action='store_true',
                         help='whether to use modified secondary structure feature representation')
+    parser.add_argument('--force_rerun', action="store_true")
     args = parser.parse_args()
     return args
 
