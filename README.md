@@ -12,7 +12,7 @@ protein structure.
 
 2) install the python dependencies: `pip install -r requirements.txt`
 
-3) test it's working by running `python get_predictions.py --structure_file example_files/AF-A0A1W2PQ64-F1-model_v4.pdb`
+3) test it's working by running `python get_predictions.py --structure_file example_files/AF-A0A1W2PQ64-F1-model_v4.pdb --output results/test.tsv`
     by default the output will be saved in the `results` directory.
 
 Optional:

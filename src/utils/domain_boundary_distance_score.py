@@ -42,6 +42,7 @@ def pred_domains_to_bounds(pred_domains, optimize_for_linkers=False):
         raise NotImplementedError # todo
     return np.array(sorted(list(set(pred_bounds.astype(int)))))
 
+
 def get_true_boundary_res(domain_dict):
     """
     In the case where there are multiple non-domain
@@ -59,6 +60,7 @@ def get_true_boundary_res(domain_dict):
     boundaries["boundary_res"] += list(domain_dict["linker"])
     return boundaries
 
+
 def boundary_distance_score(domains, boundaries):
     pred_bounds = pred_domains_to_bounds(domains)
     # distance score as specified in CASP7 paper {distance_to_true_bound:score}
@@ -75,4 +77,3 @@ def boundary_distance_score(domains, boundaries):
     # should not be added to the un-normalized score
     score = sum(sorted(scores)[-boundaries['n_boundaries']:])
     return score / normalizing_term
-

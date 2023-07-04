@@ -1,3 +1,7 @@
+"""
+Utilties for converting to/from a dictionary representation of domain assignments.
+"""
+
 import logging
 import os
 from itertools import product
@@ -9,32 +13,6 @@ from Bio.PDB.PDBExceptions import PDBConstructionWarning
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
 LOG = logging.getLogger(__name__)
-
-"""
-This script creates the 2d features: PAE, Distance matrix and alignment flags and also the 2d pairwise domain labels
-
-Alphafold PAEs are extracted from the API
-Given that alphafold PAEs are for uniprot sequences
-it is necessary to find the corresponding uniprot sequence for a given PDB structure
-The sequences of the PDB is then aligned with the uniprot sequence
-and the trimmed and aligned PAE is then saved as a matrix which is (n_residues x n_residues) 
-
-Same applies to the pairwise distance matrices which are calculated from AlphaFold predicted structure pdb files
-  
-"""
-
-valid_residues = ['LEU', 'GLU', 'ARG', 'VAL', 'LYS', 'ILE', 'ASP', 'PHE', 'ALA', 'TYR', 'THR', 'SER', 'GLN', 'PRO',
-                  'ASN', 'GLY', 'HIS', 'MET', 'TRP', 'CYS']
-
-name2letter = dict(zip(valid_residues, 'LERVKIDFAYTSQPNGHMWC'))
-
-MISSING_UP_IX = -1
-
-def check_non_assigned_positions_are_non_domain(mapping, labels):
-    unaccounted_positions = set(range(len(labels)))
-    for dom, res_pos in mapping.items():
-        unaccounted_positions = unaccounted_positions - set(res_pos)
-    assert "D" not in labels[list(unaccounted_positions)]
 
 
 def make_pair_labels(n_res, domain_dict, id_string=None, save_dir=None, non_aligned_residues=[]):
@@ -61,12 +39,14 @@ def make_pair_labels(n_res, domain_dict, id_string=None, save_dir=None, non_alig
 
     return pair_labels
 
+
 def sort_domain_limits(limits, dom_names):
     start_positions = [x[0] for x in limits]
     end_positions = [x[1] for x in limits]
     sorted_index = np.argsort(start_positions)
     assert (sorted_index == np.argsort(end_positions)).all()
     return np.array(limits)[sorted_index], list(np.array(dom_names)[sorted_index])
+
 
 def resolve_residue_in_multiple_domain(mapping, shared_res):
     """
@@ -95,6 +75,7 @@ def check_no_residue_in_multiple_domains(mapping, resolve_conflics=True):
                     raise ValueError("SAME RESIDUE NUMBER FOUND IN MULTIPLE DOMAINS")
     return mapping
 
+
 def make_domain_mapping_dict(row):
     dom_limit_list = row.dom_bounds_pdb_ix.split('|')
     dom_names = row.dom_names.split('|')
@@ -111,6 +92,7 @@ def make_domain_mapping_dict(row):
     check_no_residue_in_multiple_domains(mapping)
     return mapping
 
+
 def convert_limits_to_numbers(dom_limit_list):
     processed_dom_limit_list = []
     for lim in dom_limit_list:
@@ -124,7 +106,27 @@ def convert_limits_to_numbers(dom_limit_list):
     return processed_dom_limit_list
 
 
+def convert_domain_dict_strings(domain_dict):
+    """
+    Converts the domain dictionary into domain_name string and domain_bounds string
+    eg. domain names D1|D2|D1
+    eg. domain bounds 0-100|100-200|200-300
+    """
+    domain_names = []
+    domain_bounds = []
+    for k,v in domain_dict.items():
+        if k=='linker':
+            continue
+        residues = sorted(v)
+        for i, res in enumerate(residues):
+            if i==0:
+                start = res
+            elif residues[i-1] != res - 1:
+                domain_bounds.append(f'{start}-{residues[i-1]}')
+                domain_names.append(k)
+                start = res
+            if i == len(residues)-1:
+                domain_bounds.append(f'{start}-{res}')
+                domain_names.append(k)
 
-
-
-
+    return '|'.join(domain_names), '|'.join(domain_bounds)

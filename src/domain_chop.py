@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch import nn
-from src.create_features.make_2d_features import make_pair_labels, make_domain_mapping_dict
+from src.domain_assignment.util import make_pair_labels, make_domain_mapping_dict
 
 import logging
 LOG = logging.getLogger(__name__)
@@ -77,14 +77,12 @@ class PairwiseDomainPredictor(nn.Module):
             self.loss_function = nn.MSELoss(reduction="none")
 
     def load_checkpoints(self, average=False, old_style=False):
-        start_idx = max(self._epoch - self.n_checkpoints_to_average, 1)
-        end_idx = self._epoch
         if self.n_checkpoints_to_average == 1:
             weights_file = os.path.join(self.checkpoint_dir, "weights.pt")
         else:
             # for e.g. resetting training weights for next training epoch after testing with avg
-            LOG.info(f"Loading last checkpoint (epoch {end_idx})")
-            weights_file = os.path.join(self.checkpoint_dir, f"weights.{end_idx}.pt")
+            LOG.info(f"Loading last checkpoint (epoch {self._epoch})")
+            weights_file = os.path.join(self.checkpoint_dir, f"weights.{self._epoch}.pt")
         LOG.info(f"Loading weights from: {weights_file}")
         state_dict = torch.load(weights_file, map_location=self.device)
         if old_style:
@@ -295,7 +293,6 @@ class PairwiseDomainPredictor(nn.Module):
                 new_domain_dict[dname] = res
         new_domain_dict["linker"] = domain_dict["linker"]
         return new_domain_dict
-
 
 
 class CSVDomainPredictor:
