@@ -4,6 +4,8 @@ Tests for zip_extract.py
 
 from pathlib import Path
 import zipfile
+
+import pytest
 from click.testing import CliRunner
 from .zip_extract import run
 
@@ -20,7 +22,11 @@ def test_run_missing_index_file():
     assert result.exit_code == 2
     assert 'does not exist' in result.output
 
-def test_run_basic_usage(tmpdir):
+@pytest.mark.parametrize('with_length', [
+    (True),
+    (False),
+])
+def test_run_basic_usage(tmpdir, with_length):
     
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmpdir):
@@ -34,11 +40,17 @@ def test_run_basic_usage(tmpdir):
         test_pdb_path = Path(mock_pdb_fname).absolute()
         test_index_path = Path(mock_index_fname).absolute()
 
-        mock_index_cols = [
-            mock_pdb_fname.replace('.pdb', ''), 
-            'mock_nres',
-            'mock_md5', 
-            mock_zip_fname.replace('.zip', '')]
+        if with_length:
+            mock_index_cols = [
+                mock_pdb_fname.replace('.pdb', ''), 
+                'mock_nres',
+                'mock_md5', 
+                mock_zip_fname.replace('.zip', '')]
+        else:
+            mock_index_cols = [
+                mock_pdb_fname.replace('.pdb', ''), 
+                'mock_md5', 
+                mock_zip_fname.replace('.zip', '')]
 
         with test_index_path.open('w') as f:
             f.write('\t'.join(mock_index_cols) + '\n')
@@ -53,7 +65,12 @@ def test_run_basic_usage(tmpdir):
         out_dir = Path.cwd() / mock_out_dir
         out_dir.mkdir()
 
-        cmd_args = ['-i', mock_index_fname, '--zip_dir', '.', '--out_dir', str(out_dir)]
+        cmd_args = ['-i', mock_index_fname, 
+                    '--zip_dir', '.', 
+                    '--out_dir', str(out_dir)]
+        if with_length:
+            cmd_args.append('--with-length')
+
         result = runner.invoke(run, cmd_args)
         print(f"ARGS: {cmd_args}")
         print(f"OUT:  {result.output}")

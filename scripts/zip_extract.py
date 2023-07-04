@@ -20,13 +20,21 @@ CS_ZIP_DIR = '/SAN/bioinf/afdb_domain/zipfiles'
               type=click.Path(exists=True, dir_okay=True),
               default='.',
               help='Directory into which files will be extracted (default: ".")')
+@click.option('--with-length/--no-with-length',
+              type=bool,
+              is_flag=True, 
+              default=False,
+              help='Whether the index file includes a column with length (nres)')
 @click.option('--zip_dir', '-z',
               type=click.Path(exists=True, dir_okay=True), 
               default='.',
               help='Directory containing the zip files (default: ".")')
-def run(index_file, out_dir, zip_dir):
+def run(index_file, with_length, out_dir, zip_dir):
 
-    index_fieldnames = ['model_id', 'nres', 'md5sum', 'zipfile']
+    if with_length:
+        index_fieldnames = ['model_id', 'nres', 'md5sum', 'zipfile']
+    else:
+        index_fieldnames = ['model_id', 'md5sum', 'zipfile']
 
     index_file = Path(index_file).absolute()
     out_dir = Path(out_dir).absolute()
