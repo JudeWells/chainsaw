@@ -9,11 +9,18 @@
 #$ -j y
 
 ZIP_DIR=/SAN/bioinf/afdb_domain/zipfiles
+HOME_DIR=/home/$USER
 REPO_DIR=${HOME_DIR}/chainsaw
 REPRESENTATIVES_CSV=$REPO_DIR/proteome-tax_id-9606-14_v4_representatives.csv
 SHARED_REPO=/SAN/bioinf/domdet/chainsaw_cluster/chainsaw
-N_COPIES=100
+N_COPIES=$1
 
+if [[ -z $N_COPIES ]]
+then
+    N_COPIES=100
+fi
+
+echo "Number of times to run each chain: $N_COPIES"
 
 SCRATCH_DIR=/scratch0/$USER
 LOCAL_TASK_DIR=$SCRATCH_DIR/$JOB_NAME-$JOB_ID-$SGE_TASK_ID
@@ -25,12 +32,19 @@ echo $(printf "%08d" $SGE_TASK_ID)
 # ZIP_INDEX_FILE=/SAN/bioinf/afdb_domain/datasets/index/all_models_unique_partitions/zip_index.$(printf "%08d" $SGE_TASK_ID)
 PROTEOME_FILE=$ZIP_DIR/proteome-tax_id-9606-14_v4.zip
 echo $PROTEOME_FILE
+echo $REPRESENTATIVES_CSV
 
 RESULTS_DIR=${REPO_DIR}/speed_test
 
 if [ ! -e "${PYTHON_EXE}" ]
 then
     echo "ERROR: python executable does not exist - have you built a venv? (PYTHON_EXE=$PYTHON_EXE)"
+    exit 1
+fi
+
+if [ ! -e "${REPRESENTATIVES_CSV}" ]
+then
+    echo "ERROR: representative chains csv '${REPRESENTATIVES_CSV}' does not exist"
     exit 1
 fi
 
@@ -47,7 +61,7 @@ then
 fi
 
 echo "PROTEOME_FILE         : $PROTEOME_FILE"
-echo "RESULTS_FILE       : $RESULTS_FILE"
+echo "RESULTS_DIR       : $RESULTS_DIR"
 echo "DATE_STARTED       : "`date`
 echo
 echo "HOSTNAME            : $HOSTNAME"
@@ -60,14 +74,14 @@ set -o errexit
 
 echo "Creating output directories ..."
 mkdir -p $LOCAL_TASK_DIR
-mkdir -p $(dirname $RESULTS_FILE)
+mkdir -p $RESULTS_DIR
 echo "...DONE"
 
 echo "Loading python ..."
 source /share/apps/source_files/python/python-3.8.5.source  # TODO: might need to change
 source /SAN/bioinf/domdet/venv/bin/activate  # I copied this so that I have write permisssions
 # https://askubuntu.com/questions/320996/how-to-make-python-program-command-execute-python-3
-alias python=python3  # probably required for pyinstrument?
+# alias python=python3  # probably required for pyinstrument? no I dont think so
 # source ${SHARED_REPO}/venv/bin/activate  # is this necessary?
 echo "...DONE"
 
@@ -81,7 +95,7 @@ ls $LOCAL_PDB_DIR | wc -l
 # /usr/bin/time $ZIP_EXTRACT -i $ZIP_INDEX_FILE -z $ZIP_DIR -o $LOCAL_PDB_DIR 
 echo "...DONE"
 
-representatives=$(cut -d "," -f 1 proteome-tax_id-9606-14_v4_representatives.csv | tail -n +2)
+representatives=$(cut -d "," -f 1 $REPRESENTATIVES_CSV | tail -n +2)
 for rep in $representatives
     do
         pdb_path=$LOCAL_PDB_DIR/$rep.pdb
@@ -90,7 +104,12 @@ for rep in $representatives
         echo "Running chainsaw 100 times on file "$pdb_path
         # TODO: to make this work we need a way of passing a list and of making python call python3
         # we also need a flag which tells get_predictions to rerun duplicates
-        pyinstrument -r json -o $json_file $REPO_DIR/get_predictions.py --structure_file $(printf "${pdb_path}%.0s " {1..100}) \
-        -o $results_file --ss_mod --model_dir ${SHARED_REPO}/saved_models/ss_c_base_no_excl/version_2/epoch_11 --force_rerun
+        if [ -e $pdb_path ]
+        then
+            pyinstrument -r json -o $json_file $REPO_DIR/get_predictions.py --structure_file $(printf "${pdb_path}%.0s " {1..100}) \
+            -o $results_file --ss_mod --model_dir ${SHARED_REPO}/saved_models/ss_c_base_no_excl/version_2/epoch_11 --force_rerun
+        else
+            echo "PDB file not found at path $pdb_path"
+        fi
 
 done
