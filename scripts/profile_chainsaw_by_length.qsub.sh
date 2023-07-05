@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#$ -l tmem=40G
-#$ -l h_vmem=40G
-#$ -l h_rt=128:0:0
+#$ -l tmem=32G
+#$ -l h_vmem=32G
+#$ -l h_rt=96:0:0
 #$ -o /home/ahawkins/chainsaw/logs
 
 #$ -S /bin/bash
@@ -99,14 +99,15 @@ representatives=$(cut -d "," -f 1 $REPRESENTATIVES_CSV | tail -n +2)
 for rep in $representatives
     do
         pdb_path=$LOCAL_PDB_DIR/$rep.pdb
-        results_file=$RESULTS_DIR/$rep.csv
+        results_file="${RESULTS_DIR}/${rep}_n${N_COPIES}.csv"
+        echo $results_file
         json_file=$RESULTS_DIR/$rep.json
-        echo "Running chainsaw 100 times on file "$pdb_path
+        echo $rep "Running chainsaw 100 times on file "$pdb_path
         # TODO: to make this work we need a way of passing a list and of making python call python3
         # we also need a flag which tells get_predictions to rerun duplicates
         if [ -e $pdb_path ]
         then
-            pyinstrument -r json -o $json_file $REPO_DIR/get_predictions.py --structure_file $(printf "${pdb_path}%.0s " {1..100}) \
+            /usr/bin/time pyinstrument -r json -o $json_file $REPO_DIR/get_predictions.py --structure_file $(printf "${pdb_path}%.0s " {1..100}) \
             -o $results_file --ss_mod --model_dir ${SHARED_REPO}/saved_models/ss_c_base_no_excl/version_2/epoch_11 --force_rerun
         else
             echo "PDB file not found at path $pdb_path"
