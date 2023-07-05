@@ -1,15 +1,15 @@
-import os
-import numpy as np
-import Bio.PDB
-import torch
-from src import constants
-from src.utils.cif2pdb import cif2pdb
-from src.utils.secondary_structure import renum_pdb_file,\
-    calculate_ss, make_ss_matrix
-
 import logging
+import os
+
+import Bio.PDB
+import numpy as np
+import torch
 from scipy.spatial import distance_matrix
 
+from src import constants
+from src.utils.cif2pdb import cif2pdb
+from src.utils.secondary_structure import renum_pdb_file, \
+    calculate_ss, make_ss_matrix
 
 LOG = logging.getLogger(__name__)
 

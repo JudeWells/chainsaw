@@ -12,25 +12,23 @@ User can provide any of the following as an input to get predictions:
 
 import argparse
 import csv
-import logging
 import hashlib
+import logging
 import os
-from pathlib import Path
 import sys
 import time
+from pathlib import Path
 from typing import List
 
 import Bio.PDB
 
 from src import constants, featurisers
-from src.utils import common as common_utils
+from src.domain_assignment.util import convert_domain_dict_strings
 from src.factories import pairwise_predictor
-
-from src.utils.pymol_3d_visuals import generate_pymol_image
 from src.models.results import PredictionResult
 from src.prediction_result_file import PredictionResultsFile
-from src.domain_assignment.util import convert_domain_dict_strings
-
+from src.utils import common as common_utils
+from src.utils.pymol_3d_visuals import generate_pymol_image
 
 LOG = logging.getLogger(__name__)
 OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty']
@@ -45,20 +43,6 @@ def setup_logging():
                     format='%(asctime)s | %(levelname)s | %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
 
-
-def get_model_structure(structure_path, chain='A') -> Bio.PDB.Structure:
-    """
-    Returns the Bio.PDB.Structure object for a given PDB or MMCIF file
-    """
-    chain_id = os.path.split(structure_path)[-1].split('.')[0]
-    if structure_path.endswith('.pdb'):
-        structure = Bio.PDB.PDBParser().get_structure(chain_id, structure_path)
-    elif structure_path.endswith('.cif'):
-        structure = Bio.PDB.MMCIFParser().get_structure(chain_id, structure_path)
-    else:
-        raise ValueError(f'Unrecognized file extension: {structure_path}')
-    model = structure[0]
-    return model
 
 def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
     """
@@ -104,7 +88,7 @@ def load_model(*,
     config["learner"]["min_domain_length"] = min_domain_length
     learner = pairwise_predictor(config["learner"], output_dir=model_dir)
     if ss_mod:
-        learner.ss_mod = True # todo refactor this to something less ugly
+        learner.ss_mod = True  # todo refactor this to something less ugly
     learner.eval()
     learner.load_checkpoints()
     return learner
@@ -150,7 +134,7 @@ def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain="A") -> 
 
     # convert list of segments "start-end" into chopping string for the domain 
     # (join distontiguous segs with "_")
-    chopping_str_by_domain = { domid: '_'.join(segs) for domid, segs in chopping_segs_by_domain.items() }
+    chopping_str_by_domain = {domid: '_'.join(segs) for domid, segs in chopping_segs_by_domain.items()}
 
     # sort domain choppings by the start residue in first segment
     sorted_domain_chopping_strs = sorted(chopping_str_by_domain.values(), key=lambda x: int(x.split('-')[0]))
@@ -301,6 +285,6 @@ def parse_args():
     return args
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     setup_logging()
     main(parse_args())
