@@ -20,6 +20,8 @@ import sys
 import time
 from typing import List
 
+import Bio.PDB
+
 from src import constants, featurisers
 from src.utils import common as common_utils
 from src.factories import pairwise_predictor
@@ -31,7 +33,6 @@ from src.domain_assignment.util import convert_domain_dict_strings
 
 
 LOG = logging.getLogger(__name__)
-PYMOL_EXE = "/Applications/PyMOL.app/Contents/MacOS/PyMOL" # only required if you want to generate 3D images
 OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty']
 ACCEPTED_STRUCTURE_FILE_SUFFIXES = ['.pdb', '.cif']
 
@@ -43,6 +44,31 @@ def setup_logging():
                     stream=sys.stderr,
                     format='%(asctime)s | %(levelname)s | %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
+
+
+def get_model_structure(structure_path, chain='A') -> Bio.PDB.Structure:
+    """
+    Returns the Bio.PDB.Structure object for a given PDB or MMCIF file
+    """
+    chain_id = os.path.split(structure_path)[-1].split('.')[0]
+    if structure_path.endswith('.pdb'):
+        structure = Bio.PDB.PDBParser().get_structure(chain_id, structure_path)
+    elif structure_path.endswith('.cif'):
+        structure = Bio.PDB.MMCIFParser().get_structure(chain_id, structure_path)
+    else:
+        raise ValueError(f'Unrecognized file extension: {structure_path}')
+    model = structure[0]
+    return model
+
+def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
+    """
+    Returns the MD5 hash of a given PDB or MMCIF structure
+    """
+    residues = [c for c in structure_model[chain].child_list]
+    _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
+    sequence = ''.join([_3to1[r.get_resname()] for r in residues])
+    return sequence
+
 
 
 def get_input_method(args):
@@ -65,44 +91,43 @@ def get_input_method(args):
     else:
         raise ValueError('No input method provided')
 
-
-def load_model(
-    *,
-    model_dir: str,
-    remove_disordered_domain_threshold: float = 0.35,
-    min_ss_components: int = 2,
-    min_domain_length: int = 30,
-):
+def load_model(*,
+               model_dir: str,
+               remove_disordered_domain_threshold: float = 0.35,
+               min_ss_components: int = 2,
+               min_domain_length: int = 30,
+               ss_mod: bool = False):
     config = common_utils.load_json(os.path.join(model_dir, "config.json"))
     config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
     config["learner"]["post_process_domains"] = True
     config["learner"]["min_ss_components"] = min_ss_components
     config["learner"]["min_domain_length"] = min_domain_length
     learner = pairwise_predictor(config["learner"], output_dir=model_dir)
+    if ss_mod:
+        learner.ss_mod = True # todo refactor this to something less ugly
     learner.eval()
     learner.load_checkpoints()
     return learner
 
 
-def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
+def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain="A") -> List[PredictionResult]:
     """
     Makes the prediction and returns a list of PredictionResult objects
     """
     start = time.time()
 
     # get model structure metadata
-    pdbchain = "A"
     model_structure = featurisers.get_model_structure(pdb_path)
     model_structure_seq = featurisers.get_model_structure_sequence(model_structure, chain=pdbchain)
     model_structure_md5 = hashlib.md5(model_structure_seq.encode('utf-8')).hexdigest()
 
-    x = featurisers.inference_time_create_features(
-        pdb_path,
-        chain=pdbchain,
-        secondary_structure=True,
-        renumber_pdbs=renumber_pdbs,
-        model_structure=model_structure,
-    )
+    x = featurisers.inference_time_create_features(pdb_path,
+                                       chain=pdbchain, 
+                                       secondary_structure=True, 
+                                       renumber_pdbs=renumber_pdbs, 
+                                       model_structure=model_structure,
+                                       ss_mod=ss_mod,
+                                       add_recycling=model.max_recycles > 0)
 
     A_hat, domain_dict, uncertainty_array = model.predict(x)
     names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
@@ -149,35 +174,6 @@ def predict(model, pdb_path, renumber_pdbs=True) -> List[PredictionResult]:
     runtime = time.time() - start
     LOG.info(f"Runtime: {round(runtime, 3)}s")
     return result
-
-
-def write_pymol_script(results: List[PredictionResult],
-                       save_dir: Path,
-                       default_chain_id="A"):
-
-    # group the results by pdb_path
-    results_by_pdb_path = {}
-    for result in results:
-        if result.pdb_path.name not in results_by_pdb_path:
-            results_by_pdb_path[result.pdb_path.name] = []
-        results_by_pdb_path[result.pdb_path.name].append(result)
-
-    for pdb_filename, results in results_by_pdb_path.items():
-
-        names = "|".join([result.domain_id for result in results])
-        bounds = "|".join([result.chopping for result in results])
-        fname = Path(pdb_filename).stem
-
-        LOG.info(f"Generating pymol script for {fname} ({len(results)} domains: {bounds})")
-        generate_pymol_image(
-            pdb_path=str(results[0].pdb_path),
-            chain=default_chain_id,
-            names=names,
-            bounds=bounds,
-            image_out_path=os.path.join(str(save_dir), f'{fname}.png'),
-            path_to_script=os.path.join(str(save_dir), 'image_gen.pml'),
-            pymol_executable=PYMOL_EXE,
-        )
 
 
 def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
@@ -238,15 +234,29 @@ def main(args):
 
             pdb_path = os.path.join(structure_dir, fname)
             LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
-            result = predict(model, pdb_path)
+            result = predict(model, pdb_path, ss_mod=args.ss_mod)
             prediction_results_file.add_result(result)
             if args.pymol_visual:
-                write_pymol_script(results=[result], save_dir=outer_save_dir)
+                generate_pymol_image(
+                    pdb_path=str(result.pdb_path),
+                    chain='A',
+                    chopping=result.chopping or '',
+                    image_out_path=os.path.join(str(outer_save_dir), f'{result.pdb_path.name.replace(".pdb", "")}.png'),
+                    path_to_script=os.path.join(str(outer_save_dir), 'image_gen.pml'),
+                    pymol_executable=constants.PYMOL_EXE,
+                )
     elif input_method == 'structure_file':
-        result = predict(model, args.structure_file)
+        result = predict(model, args.structure_file, ss_mod=args.ss_mod)
         prediction_results_file.add_result(result)
         if args.pymol_visual:
-            write_pymol_script(results=[result], save_dir=outer_save_dir)
+            generate_pymol_image(
+                pdb_path=str(result.pdb_path),
+                chain='A',
+                chopping=result.chopping or '',
+                image_out_path=os.path.join(str(outer_save_dir), f'{result.pdb_path.name.replace(".pdb", "")}.png'),
+                path_to_script=os.path.join(str(outer_save_dir), 'image_gen.pml'),
+                pymol_executable=constants.PYMOL_EXE,
+            )
     else:
         raise NotImplementedError('Not implemented yet')
 
@@ -285,6 +295,8 @@ def parse_args():
                              'it will be removed')
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true',
                         help='whether to generate pymol images')
+    parser.add_argument('--ss_mod', dest='ss_mod', action='store_true',
+                        help='whether to use modified secondary structure feature representation')
     args = parser.parse_args()
     return args
 

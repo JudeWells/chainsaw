@@ -206,7 +206,7 @@ class PairwiseDomainPredictor(nn.Module):
             helix, sheet = x[1], x[2]
             diag_helix = np.diagonal(helix)
             diag_sheet = np.diagonal(sheet)
-            ss_residues = list(np.where(diag_helix == 1)[0]) + list(np.where(diag_sheet == 1)[0])
+            ss_residues = list(np.where(diag_helix > 0)[0]) + list(np.where(diag_sheet > 0)[0])
 
             domain_dict = self.trim_disordered_boundaries(domain_dict, ss_residues)
 
@@ -252,6 +252,7 @@ class PairwiseDomainPredictor(nn.Module):
         new_domain_dict["linker"] = domain_dict["linker"]
         return new_domain_dict
 
+
     def remove_domains_with_few_ss_components(self, domain_dict, x):
         """
         Remove domains where number of ss components is less than minimum
@@ -260,14 +261,35 @@ class PairwiseDomainPredictor(nn.Module):
         """
         new_domain_dict = {}
         for dname, res in domain_dict.items():
-            helix = x[1][res, :][:, res]
-            strand = x[2][res, :][:, res]
-            helix = helix[np.any(helix, axis=1)]
-            strand = strand[np.any(strand, axis=1)]
-            n_helix = len(set(["".join([str(int(i)) for i in row]) for row in helix]))
-            n_sheet = len(set(["".join([str(int(i)) for i in row]) for row in strand]))
             if dname == "linker":
                 continue
+            res = sorted(res)
+            if hasattr(self, "ss_mod") and self.ss_mod:
+                # ss_mod features have value 2 on the boundary of the ss component
+                helix_boundary_diag = np.diagonal(x[3][res,:][:,res])
+                strand_boundary_diag = np.diagonal(x[4][res,:][:,res])
+                helix_boundaries = sum(helix_boundary_diag == 1)
+                sheet_boundaries = sum(strand_boundary_diag == 1)
+                d_start = min(res)
+                d_end = max(res)
+                # adjust for cases where domain split occurrs within a single ss component
+                if x[1, d_start, d_start] == 1 and helix_boundary_diag[0] == 0:
+                    helix_boundaries += 1
+                if x[2, d_start, d_start] == 1 and strand_boundary_diag[0] == 0:
+                    sheet_boundaries += 1
+                if x[1, d_end, d_end] == 1 and helix_boundary_diag[-1] == 0:
+                    helix_boundaries += 1
+                if x[2, d_end, d_end] == 1 and strand_boundary_diag[-1] == 0:
+                    sheet_boundaries += 1
+                n_helix = helix_boundaries / 2
+                n_sheet = sheet_boundaries / 2
+            else:
+                helix = x[1][res, :][:, res]
+                strand = x[2][res, :][:, res]
+                helix = helix[np.any(helix, axis=1)]
+                strand = strand[np.any(strand, axis=1)]
+                n_helix = len(set(["".join([str(int(i)) for i in row]) for row in helix]))
+                n_sheet = len(set(["".join([str(int(i)) for i in row]) for row in strand]))
             if len(res) == 0:
                 continue
             if n_helix + n_sheet < self.min_ss_components:

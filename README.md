@@ -7,7 +7,7 @@ protein structure.
 
 1) install stride: scource code and instructions are packaged in this repository in the
     `stride` directory.  You will need to compile stride and put the executable in your
-    path. Update the `stride_executable` variable in get_predictions.py to point to the stride
+    path. Update the `STRIDE_EXE` variable in `src/constants.py` to point to the stride
     executable.
 
 2) install the python dependencies: `pip install -r requirements.txt`
@@ -17,7 +17,7 @@ protein structure.
 
 Optional:
 To visualise the domain assignments ensure that you have pymol installed and update the
-`pymol_executable` variable in get_predictions.py to point to the pymol executable.
+`STRIDE_EXE` variable in `src/constants.py` to point to the pymol executable.
 
 ## Usage
 `python get_predictions.py --structure_file /path/to/file.pdb`

@@ -8,6 +8,7 @@ from src.utils.secondary_structure import renum_pdb_file,\
     calculate_ss, make_ss_matrix
 
 import logging
+from scipy.spatial import distance_matrix
 
 
 LOG = logging.getLogger(__name__)
@@ -36,20 +37,15 @@ def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') 
     return sequence
 
 
-def inference_time_create_features(
-    pdb_path,
-    chain="A",
-    secondary_structure=True,
-    renumber_pdbs=True,
-    add_recycling=True,
-    add_mask=False,
-    stride_path=constants.STRIDE_EXE,
-    *,
-    model_structure: Bio.PDB.Structure=None,
-):
+def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,
+                                   renumber_pdbs=True, add_recycling=True, add_mask=False,
+                                   stride_path=constants.STRIDE_EXE, ss_mod=False,
+                                   *,
+                                   model_structure: Bio.PDB.Structure=None,
+                                   ):
     if pdb_path.endswith(".cif"):
         pdb_path = cif2pdb(pdb_path)
-    
+
     # HACK: allow `model_structure` to be created elsewhere (to avoid reparsing)
     # Ideally this would always happen further upstream and we wouldn't
     # need to pass in `pdb_path`, however `pdb_path` is used to generate
@@ -57,9 +53,9 @@ def inference_time_create_features(
     # -- Ian
     if not model_structure:
         model_structure = get_model_structure(pdb_path, chain=chain)
-    
+
     dist_matrix = get_distance(model_structure)
-    
+
     n_res = dist_matrix.shape[-1]
     if not secondary_structure:
         if add_recycling:
@@ -77,11 +73,17 @@ def inference_time_create_features(
         ss_filepath = pdb_path + '_ss.txt'
         calculate_ss(output_pdb_path, chain, stride_path, ssfile=ss_filepath)
         helix, strand = make_ss_matrix(ss_filepath, nres=dist_matrix.shape[-1])
+        if ss_mod:
+            helix_boundaries = make_boundary_matrix(helix)
+            strand_boundaries = make_boundary_matrix(strand)
         if renumber_pdbs:
             os.remove(output_pdb_path)
         os.remove(ss_filepath)
     LOG.info(f"Distance matrix shape: {dist_matrix.shape}, SS matrix shape: {helix.shape}")
-    stacked_features = np.stack((dist_matrix[0], helix, strand), axis=0)
+    if ss_mod:
+        stacked_features = np.stack((dist_matrix[0], helix, strand, helix_boundaries, strand_boundaries), axis=0)
+    else:
+        stacked_features = np.stack((dist_matrix[0], helix, strand), axis=0)
     if add_recycling:
         recycle_dimensions = np.zeros([2, n_res, n_res]).astype(np.float32)
         stacked_features = np.concatenate((stacked_features, recycle_dimensions), axis=0)
@@ -90,33 +92,33 @@ def inference_time_create_features(
     stacked_features = stacked_features[None] # add batch dimension
     return torch.Tensor(stacked_features)
 
-
-def calc_residue_dist(residue_one, residue_two) :
-    """Returns the C-alpha distance between two residues"""
-    try:
-        diff_vector = residue_one["CA"].coord - residue_two["CA"].coord
-        dist = np.sqrt(np.sum(diff_vector * diff_vector))
-    except Exception:
-        dist = 20.0
-    return dist
-
-
-def calc_dist_matrix(chain) :
-    """Returns a matrix of C-alpha distances between two chains"""
-    # TODO: vectorise the entire thing
-    distances = np.zeros((len(chain), len(chain)), 'float')
-    for row, residue_one in enumerate(chain):
-        for col, residue_two in enumerate(chain):
-            distances[row, col] = calc_residue_dist(residue_one, residue_two)
-    return distances
-
-
 def get_distance(structure_model: Bio.PDB.Structure, chain='A'):
-    if chain is not None:
-        residues = [c for c in structure_model[chain].child_list]
-    dist_matrix = calc_dist_matrix(residues) # recycling dimensions are added later
-    x = np.expand_dims(dist_matrix, axis=0)
-    # replace zero values and then invert.
-    x[0][x[0] == 0] = x[0][x[0] > 0].min()  # replace zero values in pae / distance
-    x[0] = x[0] ** (-1)
+    alpha_coords = np.array([residue['CA'].get_coord() for residue in \
+                             structure_model[chain].get_residues()])
+    x = distance_matrix(alpha_coords, alpha_coords)
+    x[x == 0] = x[x > 0].min()  # replace zero values in pae / distance
+    x = x ** (-1)
+    x = np.expand_dims(x, axis=0) # todo is batch dimension needed?
     return x
+
+
+def make_boundary_matrix(ss):
+    """
+    makes a matrix where  the boundary residues
+    of the sec struct component are 1
+    """
+    ss_lines = np.zeros_like(ss)
+    diag = np.diag(ss)
+    if max(diag) == 0:
+        return ss_lines
+    padded_diag = np.zeros(len(diag) + 2)
+    padded_diag[1:-1] = diag
+    diff_before = diag - padded_diag[:-2]
+    diff_after = diag - padded_diag[2:]
+    start_res = np.where(diff_before == 1)[0]
+    end_res = np.where(diff_after == 1)[0]
+    ss_lines[start_res, :] = 1
+    ss_lines[:, start_res] = 1
+    ss_lines[end_res, :] = 1
+    ss_lines[:, end_res] = 1
+    return ss_lines
