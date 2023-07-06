@@ -75,7 +75,7 @@ echo $(date)
 cd $LOCAL_TASK_DIR
 LOCAL_PDB_DIR=$LOCAL_TASK_DIR/pdb
 mkdir -p $LOCAL_PDB_DIR
-cat $ZIPFILES_LIST_FILE | xargs -I XXX sh -c unzip -d $LOCAL_PDB_DIR
+cat $ZIPFILES_LIST_FILE | xargs -I XXX unzip -d $LOCAL_PDB_DIR XXX
 echo $(date)
 echo "...DONE "
 
