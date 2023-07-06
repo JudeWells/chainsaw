@@ -7,8 +7,9 @@
 #   qsub -t 1-16933 chainsaw_submit.ucl_cs.sh
 #
 # Each job will expect to find an equivalent file containing a list of zipfiles,
-# created by 
-#   split -a 8 -d 1 -l 1000 all_proteome_zipfiles.txt data/zipfiles.
+# created by:
+#
+#   split --suffix-length=8 --numeric-suffixes=1 --lines=1000 ../all_proteome_zipfiles.txt zipfiles.
 #
 
 
