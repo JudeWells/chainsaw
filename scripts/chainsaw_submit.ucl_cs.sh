@@ -29,7 +29,7 @@ PYTHON_EXE=${SGE_O_WORKDIR}/venv/bin/python3
 
 # assumes the zip index file has been split into chunks (named 'zipindex.00000001')
 ZIPFILES_LIST_FILE=${SGE_O_WORKDIR}/data/zipfiles.`printf "%08d" $SGE_TASK_ID`
-RESULTS_FILE=${SGE_O_WORKDIR}/results/$(basename $ZIP_INDEX_FILE).results.csv
+RESULTS_FILE=${SGE_O_WORKDIR}/results/$(basename $ZIPFILES_LIST_FILE).results.csv
 
 if [ ! -e "${PYTHON_EXE}" ]
 then
