@@ -12,6 +12,7 @@ experiments/cath_annotated_alphafold/assignment.table
 *.crh
 *.csv
 results/
+speed_test/
 experiments/
 venv/
 stride/*
