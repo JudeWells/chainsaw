@@ -1,11 +1,19 @@
-# CHAINSAW
+# Chainsaw
 
 Chainsaw is a deep learning method for predicting protein domain boundaries for a given
 protein structure.
 
+If you find Chainsaw useful in your research, please cite:
+
+**Chainsaw: protein domain segmentation with fully convolutional neural networks**
+
+Jude Wells, Alex Hawkins-Hooker, Nicola Bordin, Brooks Paige and Christine Orengo
+
+[bioRxiv]([https://duckduckgo.com](https://doi.org/10.1101/2023.07.19.549732))
+
 ## Installation
 
-1) install stride: scource code and instructions are packaged in this repository in the
+1) install stride: source code and instructions are packaged in this repository in the
     `stride` directory.  You will need to compile stride and put the executable in your
     path. Update the `STRIDE_EXE` variable in `src/constants.py` to point to the stride
     executable.
@@ -16,7 +24,7 @@ protein structure.
     by default the output will be saved in the `results` directory.
 
 Optional:
-To visualise the domain assignments ensure that you have pymol installed and update the
+To visualise the domain assignments, ensure that you have pymol installed and update the
 `STRIDE_EXE` variable in `src/constants.py` to point to the pymol executable.
 
 ## Usage
