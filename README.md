@@ -9,7 +9,7 @@ If you find Chainsaw useful in your research, please cite:
 
 Jude Wells, Alex Hawkins-Hooker, Nicola Bordin, Brooks Paige and Christine Orengo
 
-[bioRxiv]([https://duckduckgo.com](https://doi.org/10.1101/2023.07.19.549732))
+[bioRxiv](https://doi.org/10.1101/2023.07.19.549732)
 
 ## Installation
 
