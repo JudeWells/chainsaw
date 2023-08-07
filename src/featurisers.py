@@ -33,7 +33,7 @@ def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') 
     """Get sequence of specified chain from parsed PDB/CIF file."""
     residues = [c for c in structure_model[chain].child_list]
     _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
-    sequence = ''.join([_3to1[r.get_resname()] for r in residues if r.get_resname() in _3to1])
+    sequence = ''.join([_3to1[r.get_resname()] for r in residues if Bio.PDB.is_aa(r)])
     return sequence
 
 
@@ -94,7 +94,7 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
 
 def get_distance(structure_model: Bio.PDB.Structure, chain='A'):
     alpha_coords = np.array([residue['CA'].get_coord() for residue in \
-                             structure_model[chain].get_residues()])
+                             structure_model[chain].get_residues() if Bio.PDB.is_aa(residue)])
     x = distance_matrix(alpha_coords, alpha_coords)
     x[x == 0] = x[x > 0].min()  # replace zero values in pae / distance
     x = x ** (-1)
