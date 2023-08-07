@@ -27,7 +27,7 @@ def test_predict_from_pdb_file(tmp_path, capsys):
         sequence_md5='a126e3d4d1a2dcadaa684287855d19f4',
         nres=expected_nres, 
         ndom=3,
-        chopping='6-39_94-192,41-90', 
+        chopping='7-40_95-193,42-91',
         uncertainty=0.0123,
     )
 
