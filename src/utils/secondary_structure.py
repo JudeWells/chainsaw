@@ -11,6 +11,8 @@ Objective is to create a secondary structure matrix for each protein
 import os
 import re
 import subprocess
+import sys
+
 import numpy as np
 
 from src.constants import REPO_ROOT
@@ -58,7 +60,7 @@ def make_ss_matrix(ss_path, nres):
 def renum_pdb_file(pdb_path, output_pdb_path):
     pdb_reres_path = REPO_ROOT / 'src/utils/pdb_reres.py'
     with open(output_pdb_path, "w") as output_file:
-        subprocess.run(['python', str(pdb_reres_path), pdb_path],
+        subprocess.run([sys.executable, str(pdb_reres_path), pdb_path],
                        stdout=output_file,
                        check=True,
                        text=True)
