@@ -78,12 +78,8 @@ def greedy_V(Y, N_iters=3, K_init=4, cost_type="mse"):
 
     V_hat = np.zeros((Y.shape[0], K_init), dtype=int)
     if cost_type == "mse":
-        residue_loss_fn = mse_loss_at_residue
-        null_residue_loss_fn = null_mse_loss_at_residue
         loss = mse_loss(V_hat, Y) # initial loss for the zero matrix V_hat = 0
     elif cost_type == "nll":
-        residue_loss_fn = nll_loss_at_residue
-        null_residue_loss_fn = null_nll_loss_at_residue
         loss = nll_loss(V_hat, Y)
     else:
         raise ValueError(cost_type)

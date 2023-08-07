@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import shutil
 import subprocess
 
 REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
