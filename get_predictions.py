@@ -114,6 +114,8 @@ def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain="A") -> 
                                        add_recycling=model.max_recycles > 0)
 
     A_hat, domain_dict, uncertainty_array = model.predict(x)
+    # Convert 0-indexed to 1-indexed to match AlphaFold indexing:
+    domain_dict = [{k: [r + 1 for r in v] for k, v in d.items()} for d in domain_dict]
     names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
     uncertainty = uncertainty_array[0]
 
