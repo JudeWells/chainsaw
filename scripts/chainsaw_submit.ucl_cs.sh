@@ -30,10 +30,11 @@ SCRATCH_DIR=/scratch0/$USER
 LOCAL_TASK_DIR=$SCRATCH_DIR/$JOB_NAME-$JOB_ID-$SGE_TASK_ID
 PYTHON_EXE=${SGE_O_WORKDIR}/venv/bin/python3
 APPEND_FLAG="--append"
+RESULT_VERSION=1
 
 # assumes the zip index file has been split into chunks (named 'zipindex.00000001')
 ZIPFILES_LIST_FILE=${SGE_O_WORKDIR}/data/zipfiles.`printf "%08d" $SGE_TASK_ID`
-RESULTS_FILE=${SGE_O_WORKDIR}/results/$(basename $ZIPFILES_LIST_FILE).results.csv
+RESULTS_FILE=${SGE_O_WORKDIR}/results/$(basename $ZIPFILES_LIST_FILE).results_v${RESULT_VERSION}.csv
 
 if [ ! -e "${PYTHON_EXE}" ]
 then
@@ -84,7 +85,7 @@ process_zipfile () {
     mkdir -p $LOCAL_PDB_DIR
 
     log "Unzipping $zipfile ..."
-    unzip -d $LOCAL_PDB_DIR XXX
+    unzip -d $LOCAL_PDB_DIR $zipfile
     log "   ...DONE"
 
     log "Running chainsaw on $zipfile ..."
@@ -92,7 +93,7 @@ process_zipfile () {
     log "EXIT_CODE: $rc"
     log "...DONE"
 
-    log "Removing local temp dir ..."
+    log "Removing local temp task dir ..."
     rm -rf $LOCAL_TASK_DIR
     log "...DONE"
 
