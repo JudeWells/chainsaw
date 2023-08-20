@@ -54,7 +54,7 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
     if not model_structure:
         model_structure = get_model_structure(pdb_path, chain=chain)
 
-    dist_matrix = get_distance(model_structure)
+    dist_matrix = get_distance(model_structure, chain=chain)
 
     n_res = dist_matrix.shape[-1]
     if not secondary_structure:
