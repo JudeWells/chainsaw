@@ -94,7 +94,7 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
 
 def get_distance(structure_model: Bio.PDB.Structure, chain='A'):
     alpha_coords = np.array([residue['CA'].get_coord() for residue in \
-                             structure_model[chain].get_residues() if Bio.PDB.is_aa(residue)])
+                             structure_model[chain].get_residues() if Bio.PDB.is_aa(residue) and 'CA' in residue])
     x = distance_matrix(alpha_coords, alpha_coords)
     x[x == 0] = x[x > 0].min()  # replace zero values in pae / distance
     x = x ** (-1)
