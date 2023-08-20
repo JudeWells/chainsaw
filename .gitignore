@@ -17,3 +17,4 @@ venv/
 stride/*
 !stride/README_stride.txt
 !stride/stride.tgz
+.vscode/
