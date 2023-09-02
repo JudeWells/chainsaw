@@ -8,7 +8,7 @@ import pandas as pd
 
 import logging
 
-from src.domain_chop import PairwiseDomainPredictor
+from src.chainsaw import Chainsaw
 from src.models.rosetta import trRosettaNetwork
 from src.domain_assignment.assigners import SparseLowRank
 from src.utils import common as common_utils
@@ -36,6 +36,7 @@ def get_model(config):
 
 
 def pairwise_predictor(learner_config, force_cpu=False, output_dir=None):
+    # TODO: would be good to make an inference-specific factory
     model = get_model(learner_config["model"])
     assigner = get_assigner(learner_config["assignment"])
     device = common_utils.get_torch_device(force_cpu=force_cpu)
@@ -45,7 +46,7 @@ def pairwise_predictor(learner_config, force_cpu=False, output_dir=None):
                                                                    "save_every_epoch",
                                                                    "uncertainty_model"]}
     LOG.info(f"Learner kwargs: {kwargs}")
-    return PairwiseDomainPredictor(model, assigner, device, checkpoint_dir=output_dir, **kwargs)
+    return Chainsaw(model, assigner, device, checkpoint_dir=output_dir, **kwargs)
 
 
 def get_test_ids(label_path, feature_path, csv_path=None):
