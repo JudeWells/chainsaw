@@ -52,7 +52,7 @@ def inference_time_create_features(pdb_path, chain="A", secondary_structure=True
     # additional files and I don't want to mess around with that logic.
     # -- Ian
     if not model_structure:
-        model_structure = get_model_structure(pdb_path, chain=chain)
+        model_structure = get_model_structure(pdb_path)
 
     dist_matrix = get_distance(model_structure, chain=chain)
 
