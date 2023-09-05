@@ -45,7 +45,7 @@ color white, structure_id\n"""
     with open(path_to_script, 'w') as filehandle:
         filehandle.write(script_text)
     bash_command = f"{pymol_executable} -c {path_to_script}"
-    status = subprocess.run(bash_command.split(), timeout=60)
+    status = subprocess.run(bash_command.split(), timeout=120)
     os.remove(path_to_script)
     return status
 
