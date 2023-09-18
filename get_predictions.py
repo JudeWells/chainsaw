@@ -94,7 +94,7 @@ def load_model(*,
     return learner
 
 
-def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain="A") -> List[PredictionResult]:
+def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain=None) -> List[PredictionResult]:
     """
     Makes the prediction and returns a list of PredictionResult objects
     """
@@ -102,6 +102,14 @@ def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain="A") -> 
 
     # get model structure metadata
     model_structure = featurisers.get_model_structure(pdb_path)
+
+    if pdbchain is None:
+        LOG.warning(f"No chain specified for {pdb_path}, using first chain")
+        # get all the chain ids from the model structure
+        all_chain_ids = [c.id for c in model_structure.get_chains()]
+        # take the first chain id
+        pdbchain = all_chain_ids[0]
+
     model_structure_seq = featurisers.get_model_structure_sequence(model_structure, chain=pdbchain)
     model_structure_md5 = hashlib.md5(model_structure_seq.encode('utf-8')).hexdigest()
 
@@ -187,6 +195,10 @@ def get_csv_writer(file_pointer):
 
 def main(args):
     outer_save_dir = args.save_dir
+    pdb_chain_id = 'A'
+    if args.use_first_chain:
+        pdb_chain_id = None
+
     input_method = get_input_method(args)
     model = load_model(
         model_dir=args.model_dir,
@@ -220,7 +232,7 @@ def main(args):
 
             pdb_path = os.path.join(structure_dir, fname)
             LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
-            result = predict(model, pdb_path, ss_mod=args.ss_mod)
+            result = predict(model, pdb_path, ss_mod=args.ss_mod, pdbchain=pdb_chain_id)
             prediction_results_file.add_result(result)
             if args.pymol_visual:
                 generate_pymol_image(
@@ -232,7 +244,7 @@ def main(args):
                     pymol_executable=constants.PYMOL_EXE,
                 )
     elif input_method == 'structure_file':
-        result = predict(model, args.structure_file, ss_mod=args.ss_mod)
+        result = predict(model, args.structure_file, ss_mod=args.ss_mod, pdbchain=pdb_chain_id)
         prediction_results_file.add_result(result)
         if args.pymol_visual:
             generate_pymol_image(
@@ -283,6 +295,7 @@ def parse_args():
                         help='whether to generate pymol images')
     parser.add_argument('--ss_mod', dest='ss_mod', action='store_true',
                         help='whether to use modified secondary structure feature representation')
+    parser.add_argument('--use_first_chain', default=False, action="store_true", help='use the first chain in the structure (rather than "A")')
     args = parser.parse_args()
     return args
 
