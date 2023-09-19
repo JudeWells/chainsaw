@@ -225,7 +225,6 @@ def main(args):
             if args.pymol_visual:
                 generate_pymol_image(
                     pdb_path=str(result.pdb_path),
-                    chain=pdb_chain_id or 'A',
                     chopping=result.chopping or '',
                     image_out_path=os.path.join(str(outer_save_dir), f'{result.pdb_path.name.replace(".pdb", "")}.png'),
                     path_to_script=os.path.join(str(outer_save_dir), 'image_gen.pml'),
@@ -237,7 +236,6 @@ def main(args):
         if args.pymol_visual:
             generate_pymol_image(
                 pdb_path=str(result.pdb_path),
-                chain=pdb_chain_id or 'A',
                 chopping=result.chopping or '',
                 image_out_path=os.path.join(str(outer_save_dir), f'{result.pdb_path.name.replace(".pdb", "")}.png'),
                 path_to_script=os.path.join(str(outer_save_dir), 'image_gen.pml'),
