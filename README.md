@@ -25,7 +25,7 @@ Jude Wells, Alex Hawkins-Hooker, Nicola Bordin, Brooks Paige and Christine Oreng
 
 Optional:
 To visualise the domain assignments, ensure that you have pymol installed and update the
-`STRIDE_EXE` variable in `src/constants.py` to point to the pymol executable.
+`PYMOL_EXE` variable in `src/constants.py` to point to the pymol executable.
 
 ## Usage
 `python get_predictions.py --structure_file /path/to/file.pdb`

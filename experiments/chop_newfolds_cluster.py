@@ -1,7 +1,7 @@
 import sys
 import os
 import argparse
-from get_predictions import predict, load_model, parse_args, write_pymol_script
+from get_predictions import predict, load_model, parse_args
 import time
 
 parser = argparse.ArgumentParser()
