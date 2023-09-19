@@ -6,17 +6,30 @@ import shutil
 import subprocess
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
-DATA_DIR = REPO_ROOT / "example_files"
+import pytest
 
-def test_basic_usage(tmp_path):
+REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
+DATA_DIR = REPO_ROOT / "tests" / "fixtures"
+
+@pytest.mark.parametrize("model_id,extra_args,result_cols", (
+    (
+        "AF-A0A1W2PQ64-F1-model_v4", 
+        [], 
+        ['AF-A0A1W2PQ64-F1-model_v4', 'a126e3d4d1a2dcadaa684287855d19f4', '194', '2', '7-40_95-193,42-91', '0.0444']
+    ),
+    (
+        "4wgvC", 
+        ["--use_first_chain"], 
+        ['4wgvC', 'a3a3ba0368e780f401d28f9dbf00e867', '395', '1', '6-394', '0.00601']
+    ),
+))
+def test_basic_usage(tmp_path, model_id, extra_args, result_cols):
 
     # setup test data
-    af_id = "AF-A0A1W2PQ64-F1-model_v4"
-    example_structure_path = DATA_DIR / f"{af_id}.pdb"
+    example_structure_path = DATA_DIR / f"{model_id}.pdb"
     expected_cols = [
         ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty'],
-        ['AF-A0A1W2PQ64-F1-model_v4', 'a126e3d4d1a2dcadaa684287855d19f4', '194', '2', '7-40_95-193,42-91', '0.0444'],
+        result_cols,
     ]
     expected_output = "\r\n".join(["\t".join(row) for row in expected_cols])
     orig_path = Path.cwd()
@@ -44,6 +57,8 @@ def test_basic_usage(tmp_path):
  
     base_args =  ["python", str(script_path), "--structure_directory", ".", "-o", str(results_file)]
 
+    base_args.extend(extra_args)
+
     # make sure we can run this in an isolated directory
     completed_process, results_output = run_chainsaw(base_args)
     assert completed_process.returncode == 0
@@ -63,7 +78,7 @@ def test_basic_usage(tmp_path):
 
     # check that we have skipped the result that has already been computed
     chainsaw_logs = completed_process.stderr.decode()
-    assert f"result for '{af_id}' already exists" in chainsaw_logs
+    assert f"result for '{model_id}' already exists" in chainsaw_logs
 
 
 def normalise_output(output_str):
