@@ -44,17 +44,6 @@ def setup_logging():
                     datefmt='%m/%d/%Y %I:%M:%S %p')
 
 
-def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
-    """
-    Returns the MD5 hash of a given PDB or MMCIF structure
-    """
-    residues = [c for c in structure_model[chain].child_list]
-    _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
-    sequence = ''.join([_3to1[r.get_resname()] for r in residues])
-    return sequence
-
-
-
 def get_input_method(args):
     number_of_input_methods = sum([ args.uniprot_id is not None,
                                     args.uniprot_id_list_file is not None,
