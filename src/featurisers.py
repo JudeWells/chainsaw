@@ -45,9 +45,9 @@ def get_model_structure_residues(structure_model: Bio.PDB.Structure, chain='A') 
     for res_index, biores in enumerate(structure_model[chain].child_list, 1):
         res_num = biores.id[1]
         res_ins = biores.id[2]
-        res_label = res_num
+        res_label = str(res_num)
         if res_ins != ' ':
-            res_label += {res_ins}
+            res_label += str(res_ins)
         
         aa3 = biores.get_resname()
         if aa3 not in _3to1:
