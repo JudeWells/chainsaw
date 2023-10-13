@@ -20,7 +20,7 @@ DATA_DIR = REPO_ROOT / "tests" / "fixtures"
     (
         "4wgvC", 
         ["--use_first_chain"], 
-        ['4wgvC', 'a3a3ba0368e780f401d28f9dbf00e867', '395', '1', '6-394', '0.00601']
+        ['4wgvC', 'a3a3ba0368e780f401d28f9dbf00e867', '395', '1', '50-438', '0.00601']
     ),
 ))
 def test_basic_usage(tmp_path, model_id, extra_args, result_cols):

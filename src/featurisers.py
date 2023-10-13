@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import List
 
 import Bio.PDB
 import numpy as np
@@ -29,12 +30,39 @@ def get_model_structure(structure_path) -> Bio.PDB.Structure:
     return model
 
 
-def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
-    """Get sequence of specified chain from parsed PDB/CIF file."""
-    residues = [c for c in structure_model[chain].child_list]
+class Residue:
+    def __init__(self, index: int, res_label: str, aa: str):
+        self.index = int(index)
+        self.res_label = str(res_label)
+        self.aa = str(aa)
+
+def get_model_structure_residues(structure_model: Bio.PDB.Structure, chain='A') -> List[Residue]:
+    """
+    Returns a list of residues from a given PDB or MMCIF structure
+    """
     _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
-    sequence = ''.join([_3to1[r.get_resname()] for r in residues if Bio.PDB.is_aa(r) and r.get_resname() in _3to1])
-    return sequence
+    residues = []
+    for res_index, biores in enumerate(structure_model[chain].child_list, 1):
+        res_num = biores.id[1]
+        res_ins = biores.id[2]
+        res_label = str(res_num)
+        if res_ins != ' ':
+            res_label += str(res_ins)
+        
+        aa3 = biores.get_resname()
+        if aa3 not in _3to1:
+            continue
+        aa = _3to1[aa3]
+        res = Residue(res_index, res_label, aa)
+        residues.append(res)
+    return residues
+
+# def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
+#     """Get sequence of specified chain from parsed PDB/CIF file."""
+#     residues = [c for c in structure_model[chain].child_list]
+#     _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
+#     sequence = ''.join([_3to1[r.get_resname()] for r in residues if Bio.PDB.is_aa(r) and r.get_resname() in _3to1])
+#     return sequence
 
 
 def inference_time_create_features(pdb_path, chain="A", secondary_structure=True,

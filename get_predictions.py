@@ -30,6 +30,7 @@ from src.prediction_result_file import PredictionResultsFile
 from src.utils import common as common_utils
 from src.utils.pymol_3d_visuals import generate_pymol_image
 
+
 LOG = logging.getLogger(__name__)
 OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty']
 ACCEPTED_STRUCTURE_FILE_SUFFIXES = ['.pdb', '.cif']
@@ -42,17 +43,6 @@ def setup_logging():
                     stream=sys.stderr,
                     format='%(asctime)s | %(levelname)s | %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
-
-
-def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
-    """
-    Returns the MD5 hash of a given PDB or MMCIF structure
-    """
-    residues = [c for c in structure_model[chain].child_list]
-    _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
-    sequence = ''.join([_3to1[r.get_resname()] for r in residues])
-    return sequence
-
 
 
 def get_input_method(args):
@@ -110,7 +100,9 @@ def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain=None) ->
         # take the first chain id
         pdbchain = all_chain_ids[0]
 
-    model_structure_seq = featurisers.get_model_structure_sequence(model_structure, chain=pdbchain)
+    model_residues = featurisers.get_model_structure_residues(model_structure, chain=pdbchain)
+    model_res_label_by_index = { int(r.index): str(r.res_label) for r in model_residues}
+    model_structure_seq = "".join([r.aa for r in model_residues])
     model_structure_md5 = hashlib.md5(model_structure_seq.encode('utf-8')).hexdigest()
 
     x = featurisers.inference_time_create_features(pdb_path,
@@ -135,24 +127,61 @@ def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain=None) ->
 
     assert len(names) == len(bounds)
 
-    # gather choppings into segments in domains
-    chopping_segs_by_domain = {}
-    for domain_id, chopping in zip(names, bounds):
-        if domain_id not in chopping_segs_by_domain:
-            chopping_segs_by_domain[domain_id] = []
-        chopping_segs_by_domain[domain_id].append(chopping)
+    class Seg:
+        def __init__(self, domain_id: str, start_index: int, end_index: int):
+            self.domain_id = domain_id
+            self.start_index = int(start_index)
+            self.end_index = int(end_index)
+        
+        def res_label_of_index(self, index: int):
+            if index not in model_res_label_by_index:
+                raise ValueError(f"Index {index} not in model_res_label_by_index ({model_res_label_by_index})")
+            return model_res_label_by_index[int(index)]
 
-    # convert list of segments "start-end" into chopping string for the domain 
-    # (join distontiguous segs with "_")
-    chopping_str_by_domain = {domid: '_'.join(segs) for domid, segs in chopping_segs_by_domain.items()}
+        @property
+        def start_label(self):
+            return self.res_label_of_index(self.start_index)
+        
+        @property
+        def end_label(self):
+            return self.res_label_of_index(self.end_index)
+
+    class Dom:
+        def __init__(self, domain_id, segs: List[Seg] = None):
+            self.domain_id = domain_id
+            if segs is None:
+                segs = []
+            self.segs = segs
+
+        def add_seg(self, seg: Seg):
+            self.segs.append(seg)
+
+    # gather choppings into segments in domains
+    domains_by_domain_id = {}
+    for domain_id, chopping_by_index in zip(names, bounds):
+        if domain_id not in domains_by_domain_id:
+            domains_by_domain_id[domain_id] = Dom(domain_id)
+        start_index, end_index = chopping_by_index.split('-')
+        seg = Seg(domain_id, start_index, end_index)
+        domains_by_domain_id[domain_id].add_seg(seg)
 
     # sort domain choppings by the start residue in first segment
-    sorted_domain_chopping_strs = sorted(chopping_str_by_domain.values(), key=lambda x: int(x.split('-')[0]))
+    domains = sorted(domains_by_domain_id.values(), key=lambda dom: dom.segs[0].start_index)
 
-    # convert to string (join domains with ",")
-    chopping_str = ','.join(sorted_domain_chopping_strs)
+    # collect domain choppings as strings
+    domain_choppings = []
+    for dom in domains:
+        # convert segments to strings
+        segs_str = [f"{seg.start_label}-{seg.end_label}" for seg in dom.segs]
+        segs_index_str = [f"{seg.start_index}-{seg.end_index}" for seg in dom.segs]
+        LOG.info(f"Segments (index to label): {segs_index_str} -> {segs_str}")
+        # join discontinuous segs with '_' 
+        domain_choppings.append('_'.join(segs_str))
 
-    num_domains = len(chopping_str_by_domain)
+    # join domains with ','
+    chopping_str = ','.join(domain_choppings)
+
+    num_domains = len(domain_choppings)
     if num_domains == 0:
         chopping_str = None
 
