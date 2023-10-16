@@ -22,6 +22,11 @@ DATA_DIR = REPO_ROOT / "tests" / "fixtures"
         ["--use_first_chain"], 
         ['4wgvC', 'a3a3ba0368e780f401d28f9dbf00e867', '395', '1', '50-438', '0.00601']
     ),
+    (
+        "5yclA", 
+        ["--use_first_chain"], 
+        ['5yclA', '7990687b137db1903004b3a9e97e3f09', '131', '2', '7-71,74-140', '0.0146']
+    ),
 ))
 def test_basic_usage(tmp_path, model_id, extra_args, result_cols):
 
