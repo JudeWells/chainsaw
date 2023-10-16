@@ -42,7 +42,8 @@ def get_model_structure_residues(structure_model: Bio.PDB.Structure, chain='A') 
     """
     _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
     residues = []
-    for res_index, biores in enumerate(structure_model[chain].child_list, 1):
+    res_index = 1
+    for biores in structure_model[chain].child_list:
         res_num = biores.id[1]
         res_ins = biores.id[2]
         res_label = str(res_num)
@@ -52,9 +53,14 @@ def get_model_structure_residues(structure_model: Bio.PDB.Structure, chain='A') 
         aa3 = biores.get_resname()
         if aa3 not in _3to1:
             continue
+
         aa = _3to1[aa3]
         res = Residue(res_index, res_label, aa)
         residues.append(res)
+        
+        # increment the residue index after we have filtered out non-standard amino acids
+        res_index += 1
+    
     return residues
 
 # def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
