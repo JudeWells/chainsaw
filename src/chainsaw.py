@@ -14,6 +14,7 @@ from src.models.results import PredictionResult
 
 
 import logging
+
 LOG = logging.getLogger(__name__)
 
 
@@ -118,10 +119,12 @@ class Chainsaw(nn.Module):
             x = x[0].cpu().numpy()
             helix = x[1]
             sheet = x[2]
-            domain_dict = self.post_processor.post_process(domain_dict, helix, sheet) # todo move this to domains from pairwise function
+            domain_dict = self.post_processor.post_process(
+                domain_dict, pdb_path, chain_id, helix=helix, strand=sheet
+            )  # todo move this to domains from pairwise function
 
         chopping_str = self.domain_dict_to_chopping_str(domain_dicts[0])
-        num_domains = 0 if chopping_str is None else len(chopping_str.split(','))
+        num_domains = 0 if chopping_str is None else len(chopping_str.split(","))
         result = PredictionResult(
             pdb_path=pdb_path,
             sequence_md5=model_structure_md5,
