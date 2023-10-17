@@ -8,8 +8,7 @@ from scipy.spatial import distance_matrix
 
 from src import constants
 from src.utils.cif2pdb import cif2pdb
-from src.utils.secondary_structure import renum_pdb_file, \
-    calculate_ss, make_ss_matrix
+from src.utils.secondary_structure import renum_pdb_file, calculate_ss, make_ss_matrix
 
 LOG = logging.getLogger(__name__)
 
@@ -29,7 +28,13 @@ def get_model_structure(structure_path) -> Bio.PDB.Structure:
     return model
 
 
-def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain='A') -> str:
+def extract_plddts(model_structure, chain_id):
+    residues = model_structure[chain_id].child_list
+    plddts = [res["CA"].get_bfactor() for res in residues]
+    return plddts
+
+
+def get_model_structure_sequence(structure_model: Bio.PDB.Structure, chain="A") -> str:
     """Get sequence of specified chain from parsed PDB/CIF file."""
     residues = [c for c in structure_model[chain].child_list]
     _3to1 = Bio.PDB.Polypeptide.protein_letters_3to1
