@@ -36,7 +36,8 @@ class SparseLowRank(BaseAssigner):
         # N x K, columns are then indicator vectors
         V, loss = greedy_V(y_pred, N_iters=self.N_iters, K_init=self.K_init, cost_type=self.cost_type)
         K = V.shape[-1]
-        scaled_loss = loss / y_pred.shape[0] ** 2 # used to reprepsent the uncertainty
+        A = V@V.T
+        average_likelihood = np.exp((A * np.log(y_pred) + (1-(A))*np.log(1-y_pred)).mean())
         # throw away small clusters
         V = np.where(
             V.sum(0, keepdims=True) < self.linker_threshold,  # 1, K
@@ -54,7 +55,7 @@ class SparseLowRank(BaseAssigner):
             if cluster_inds.size > 0:
                 assignments[f"domain_{domain_ix}"] = cluster_inds
                 domain_ix += 1
-        return assignments, scaled_loss
+        return assignments, average_likelihood
 
 
 class SpectralClustering(BaseAssigner):

@@ -18,3 +18,4 @@ stride/*
 !stride/README_stride.txt
 !stride/stride.tgz
 .vscode/
+no_recycle_fb_test_results/

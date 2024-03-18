@@ -38,6 +38,8 @@ class PairwiseDomainPredictor(nn.Module):
         min_domain_length=30,
         remove_disordered_domain_threshold=0,
         trim_each_domain=True,
+        dist_transform_type="min_replace_inverse",
+        distance_denominator=10,
     ):
         super().__init__()
         self._train_model = model  # we want to keep this hanging around so that optimizer references dont break
@@ -57,6 +59,8 @@ class PairwiseDomainPredictor(nn.Module):
         self.trim_each_domain = trim_each_domain
         self.min_domain_length = min_domain_length
         self.min_ss_components = min_ss_components
+        self.dist_transform_type = dist_transform_type
+        self.distance_denominator = distance_denominator
         if load_checkpoint_if_exists:
             checkpoint_files = sorted(
                 glob.glob(os.path.join(self.checkpoint_dir, "weights*")),
@@ -167,8 +171,27 @@ class PairwiseDomainPredictor(nn.Module):
             uncertainty_list.append(uncertainty)
         return domain_preds, uncertainty_list
 
+    def distance_transform(self, x):
+        dist_chan = x[0, 0]
+        # Find the minimum non-zero value in the channel
+        min_nonzero = dist_chan[dist_chan > 0].min()
+        # Replace zero values in the channel with the minimum non-zero value
+        dist_chan[dist_chan == 0] = min_nonzero
+        if self.dist_transform_type == "min_replace_inverse":
+            # replace zero values and then invert.
+            dist_chan = dist_chan ** (-1)
+            x[0, 0] = dist_chan
+            return x
+
+        elif self.dist_transform_type == "unidoc_exponent": # replace zero values in pae / distance
+            spread = self.distance_denominator
+            dist_chan = (1 + np.exp((dist_chan - 8) / spread)) ** -1
+            x[0,0] = dist_chan
+            return x
+
     @torch.no_grad()
     def predict(self, x, return_pairwise=True):
+        x = self.distance_transform(x)
         x = x.to(self.device)
         for i in range(self.max_recycles):
             x = self.recycle_predict(x)
@@ -264,7 +287,7 @@ class PairwiseDomainPredictor(nn.Module):
             if dname == "linker":
                 continue
             res = sorted(res)
-            if hasattr(self, "ss_mod") and self.ss_mod:
+            if hasattr(self, "ss_mod") and self.ss_mod: # todo fix this
                 # ss_mod features have value 2 on the boundary of the ss component
                 helix_boundary_diag = np.diagonal(x[3][res,:][:,res])
                 strand_boundary_diag = np.diagonal(x[4][res,:][:,res])

@@ -72,19 +72,21 @@ def load_model(*,
                min_domain_length: int = 30,
                ss_mod: bool = False):
     config = common_utils.load_json(os.path.join(model_dir, "config.json"))
+    feature_config = common_utils.load_json(os.path.join(model_dir, "feature_config.json"))
     config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
     config["learner"]["post_process_domains"] = True
     config["learner"]["min_ss_components"] = min_ss_components
     config["learner"]["min_domain_length"] = min_domain_length
+    config["learner"]["dist_transform_type"] = config["data"]["dist_transform"]
+    config["learner"]["distance_denominator"] = config["data"]["distance_denominator"]
     learner = pairwise_predictor(config["learner"], output_dir=model_dir)
-    if ss_mod:
-        learner.ss_mod = True  # todo refactor this to something less ugly
+    learner.feature_config = feature_config
     learner.eval()
     learner.load_checkpoints()
     return learner
 
 
-def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain=None) -> List[PredictionResult]:
+def predict(model, pdb_path, renumber_pdbs=True, pdbchain=None) -> List[PredictionResult]:
     """
     Makes the prediction and returns a list of PredictionResult objects
     """
@@ -106,12 +108,10 @@ def predict(model, pdb_path, renumber_pdbs=True, ss_mod=False, pdbchain=None) ->
     model_structure_md5 = hashlib.md5(model_structure_seq.encode('utf-8')).hexdigest()
 
     x = featurisers.inference_time_create_features(pdb_path,
-                                       chain=pdbchain, 
-                                       secondary_structure=True, 
-                                       renumber_pdbs=renumber_pdbs, 
-                                       model_structure=model_structure,
-                                       ss_mod=ss_mod,
-                                       add_recycling=model.max_recycles > 0)
+                                                    feature_config=model.feature_config,
+                                                    chain=pdbchain,
+                                                    renumber_pdbs=renumber_pdbs,
+                                                    model_structure=model_structure)
 
     A_hat, domain_dict, uncertainty_array = model.predict(x)
     # Convert 0-indexed to 1-indexed to match AlphaFold indexing:
@@ -261,7 +261,7 @@ def main(args):
 
             pdb_path = os.path.join(structure_dir, fname)
             LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
-            result = predict(model, pdb_path, ss_mod=args.ss_mod, pdbchain=pdb_chain_id)
+            result = predict(model, pdb_path, pdbchain=pdb_chain_id)
             prediction_results_file.add_result(result)
             if args.pymol_visual:
                 generate_pymol_image(
@@ -272,7 +272,7 @@ def main(args):
                     pymol_executable=constants.PYMOL_EXE,
                 )
     elif input_method == 'structure_file':
-        result = predict(model, args.structure_file, ss_mod=args.ss_mod, pdbchain=pdb_chain_id)
+        result = predict(model, args.structure_file, pdbchain=pdb_chain_id)
         prediction_results_file.add_result(result)
         if args.pymol_visual:
             generate_pymol_image(

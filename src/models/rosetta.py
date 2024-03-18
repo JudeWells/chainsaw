@@ -15,9 +15,7 @@ def conv2d(in_chan, out_chan, kernel_size, dilation=1, **kwargs):
 
 
 class trRosettaNetwork(nn.Module):
-    """symmetrise_output: if True, output is symmetrised by adding the transpose
-    of the output and dividing by 2"""
-    def __init__(self, filters=64, kernel=3, num_layers=61, in_channels=3, symmetrise_output=False):
+    def __init__(self, filters=64, kernel=3, num_layers=61, in_channels=3, symmetrise_output=False, dropout=0.15):
         super().__init__()
         self.filters = filters
         self.kernel = kernel
@@ -37,15 +35,23 @@ class trRosettaNetwork(nn.Module):
         # stack of residual blocks with dilations
         cycle_dilations = [1, 2, 4, 8, 16]
         dilations = [cycle_dilations[i % len(cycle_dilations)] for i in range(num_layers)]
-
-        self.layers = nn.ModuleList([nn.Sequential(
-            conv2d(filters, filters, kernel, dilation=dilation),
-            instance_norm(filters),
-            elu(),
-            nn.Dropout(p=0.15),
-            conv2d(filters, filters, kernel, dilation=dilation),
-            instance_norm(filters)
-        ) for dilation in dilations])
+        if dropout > 0:
+            self.layers = nn.ModuleList([nn.Sequential(
+                conv2d(filters, filters, kernel, dilation=dilation),
+                instance_norm(filters),
+                elu(),
+                nn.Dropout(p=dropout),
+                conv2d(filters, filters, kernel, dilation=dilation),
+                instance_norm(filters)
+            ) for dilation in dilations])
+        else:
+            self.layers = nn.ModuleList([nn.Sequential(
+                conv2d(filters, filters, kernel, dilation=dilation),
+                instance_norm(filters),
+                elu(),
+                conv2d(filters, filters, kernel, dilation=dilation),
+                instance_norm(filters)
+            ) for dilation in dilations])
 
         self.activate = elu()
 
