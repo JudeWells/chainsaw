@@ -320,8 +320,6 @@ def parse_args():
                              'it will be removed')
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true',
                         help='whether to generate pymol images')
-    parser.add_argument('--ss_mod', dest='ss_mod', action='store_true',
-                        help='whether to use modified secondary structure feature representation')
     parser.add_argument('--use_first_chain', default=False, action="store_true", help='use the first chain in the structure (rather than "A")')
     args = parser.parse_args()
     return args

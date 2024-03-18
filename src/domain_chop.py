@@ -192,9 +192,17 @@ class PairwiseDomainPredictor(nn.Module):
     @torch.no_grad()
     def predict(self, x, return_pairwise=True):
         x = self.distance_transform(x)
-        x = x.to(self.device)
-        for i in range(self.max_recycles):
-            x = self.recycle_predict(x)
+        if self.max_recycles > 0:
+            for i in range(self.max_recycles):
+                # add recycling channels
+                n_res = x.shape[-1]
+                recycle_channels = torch.zeros(1, 2, n_res, n_res)
+                # Concatenate the original tensor and the zeros tensor along the second dimension
+                x = torch.cat((x, recycle_channels), dim=1)
+                x = x.to(self.device)
+                x = self.recycle_predict(x)
+        else:
+            x = x.to(self.device)
         y_pred = self.predict_pairwise(x)
         domain_dicts, confidence = self.domains_from_pairwise(y_pred)
         if self.post_process_domains:
