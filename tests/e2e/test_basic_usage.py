@@ -33,7 +33,7 @@ def test_basic_usage(tmp_path, model_id, extra_args, result_cols):
     # setup test data
     example_structure_path = DATA_DIR / f"{model_id}.pdb"
     expected_cols = [
-        ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty'],
+        ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence'],
         result_cols,
     ]
     expected_output = "\r\n".join(["\t".join(row) for row in expected_cols])

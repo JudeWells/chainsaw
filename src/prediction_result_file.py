@@ -37,7 +37,7 @@ class PredictionResultsFile:
     Writes prediction results to a file in chunks
     """
     
-    COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty']
+    COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence']
 
     def __init__(self, 
                  csv_path: Path, *, 
@@ -98,7 +98,7 @@ class PredictionResultsFile:
             'nres': res.nres,
             'ndom': res.ndom,
             'chopping': res.chopping if res.chopping is not None else 'NULL',
-            'uncertainty': f'{res.uncertainty:.3g}' if res.uncertainty is not None else 'NULL',
+            'confidence': f'{res.confidence:.3g}' if res.confidence is not None else 'NULL',
         }
         csv_writer.writerow(row)
 

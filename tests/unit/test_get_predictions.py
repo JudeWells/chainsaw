@@ -28,7 +28,7 @@ def test_predict_from_pdb_file(tmp_path, capsys):
         nres=expected_nres, 
         ndom=3,
         chopping='7-40_95-193,42-91',
-        uncertainty=0.0123,
+        confidence=0.0123,
     )
 
     tmp_results_dir = tmp_path / "results"

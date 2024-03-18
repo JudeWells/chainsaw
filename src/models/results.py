@@ -8,7 +8,7 @@ def chain_id_from_pdb_path(pdb_path: Path):
 class PredictionResult(BaseModel):
 
     pdb_path: Path
-    uncertainty: float
+    confidence: float
     chain_id: Optional[str]
     sequence_md5: str
     ndom: int

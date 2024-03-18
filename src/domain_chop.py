@@ -164,12 +164,12 @@ class PairwiseDomainPredictor(nn.Module):
     def domains_from_pairwise(self, y_pred):
         assert y_pred.ndim == 3
         domain_preds = []
-        uncertainty_list = []
+        confidence_list = []
         for pred_single in y_pred.cpu().numpy():
-            single_domains, uncertainty = self.domain_caller(pred_single)
+            single_domains, confidence = self.domain_caller(pred_single)
             domain_preds.append(single_domains)
-            uncertainty_list.append(uncertainty)
-        return domain_preds, uncertainty_list
+            confidence_list.append(confidence)
+        return domain_preds, confidence_list
 
     def distance_transform(self, x):
         dist_chan = x[0, 0]
@@ -196,19 +196,19 @@ class PairwiseDomainPredictor(nn.Module):
         for i in range(self.max_recycles):
             x = self.recycle_predict(x)
         y_pred = self.predict_pairwise(x)
-        domain_dicts, uncertainty = self.domains_from_pairwise(y_pred)
+        domain_dicts, confidence = self.domains_from_pairwise(y_pred)
         if self.post_process_domains:
             domain_dicts = self.post_process(domain_dicts, x) # todo move this to domains from pairwise function
         if return_pairwise:
-            return y_pred, domain_dicts, uncertainty
+            return y_pred, domain_dicts, confidence
         else:
-            return domain_dicts, uncertainty
+            return domain_dicts, confidence
 
     @torch.no_grad()
     def recycle_predict(self, x):
         x = x.to(self.device)
         y_pred = self.predict_pairwise(x)
-        domain_dicts, uncertainty = self.domains_from_pairwise(y_pred)
+        domain_dicts, confidence = self.domains_from_pairwise(y_pred)
         y_pred_from_domains = np.array(
             [make_pair_labels(n_res=x.shape[-1], domain_dict=d_dict) for d_dict in domain_dicts])
         y_pred_from_domains = torch.tensor(y_pred_from_domains).to(self.device)

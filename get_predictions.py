@@ -32,7 +32,7 @@ from src.utils.pymol_3d_visuals import generate_pymol_image
 
 
 LOG = logging.getLogger(__name__)
-OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty']
+OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence']
 ACCEPTED_STRUCTURE_FILE_SUFFIXES = ['.pdb', '.cif']
 
 
@@ -77,8 +77,8 @@ def load_model(*,
     config["learner"]["post_process_domains"] = True
     config["learner"]["min_ss_components"] = min_ss_components
     config["learner"]["min_domain_length"] = min_domain_length
-    config["learner"]["dist_transform_type"] = config["data"]["dist_transform"]
-    config["learner"]["distance_denominator"] = config["data"]["distance_denominator"]
+    config["learner"]["dist_transform_type"] = config["data"].get("dist_transform", 'min_replace_inverse')
+    config["learner"]["distance_denominator"] = config["data"].get("distance_denominator", None)
     learner = pairwise_predictor(config["learner"], output_dir=model_dir)
     learner.feature_config = feature_config
     learner.eval()
@@ -113,11 +113,11 @@ def predict(model, pdb_path, renumber_pdbs=True, pdbchain=None) -> List[Predicti
                                                     renumber_pdbs=renumber_pdbs,
                                                     model_structure=model_structure)
 
-    A_hat, domain_dict, uncertainty_array = model.predict(x)
+    A_hat, domain_dict, confidence = model.predict(x)
     # Convert 0-indexed to 1-indexed to match AlphaFold indexing:
     domain_dict = [{k: [r + 1 for r in v] for k, v in d.items()} for d in domain_dict]
     names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
-    uncertainty = uncertainty_array[0]
+    confidence = confidence[0]
 
     if names_str == "":
         names = bounds = ()
@@ -191,7 +191,7 @@ def predict(model, pdb_path, renumber_pdbs=True, pdbchain=None) -> List[Predicti
         nres=len(model_structure_seq),
         ndom=num_domains,
         chopping=chopping_str,
-        uncertainty=uncertainty,
+        confidence=confidence,
     )
 
     runtime = time.time() - start
@@ -210,7 +210,7 @@ def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
             'nres': res.nres,
             'ndom': res.ndom,
             'chopping': res.chopping if res.chopping is not None else 'NULL',
-            'uncertainty': f'{res.uncertainty:.3g}' if res.uncertainty is not None else 'NULL',
+            'confidence': f'{res.confidence:.3g}' if res.confidence is not None else 'NULL',
         }
         csv_writer.writerow(row)
 

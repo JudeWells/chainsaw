@@ -12,7 +12,7 @@ def test_write_csv_results():
     expected_chopping_str = '189-237,238-353,381-505,524-658,687-826'
     expected_ndom = len(expected_chopping_str.split(','))
     expected_nres = 1234
-    expected_uncertainty = 0.0123
+    expected_confidence = 0.0123
 
     result = PredictionResult(
         pdb_path=mock_pdb_path, 
@@ -21,7 +21,7 @@ def test_write_csv_results():
         ndom=expected_ndom,
         nres=expected_nres,
         chopping=expected_chopping_str,
-        uncertainty=expected_uncertainty,
+        confidence=expected_confidence,
     )
 
     fp = io.StringIO()
@@ -31,7 +31,7 @@ def test_write_csv_results():
     fp.seek(0)
 
     expected_cols = [chain_id, expected_sequence_md5, expected_nres, 
-                     expected_ndom, expected_chopping_str, expected_uncertainty]
+                     expected_ndom, expected_chopping_str, expected_confidence]
     actual_text = fp.read().replace('\r\n', '\n')
     assert actual_text == '\t'.join([str(col) for col in expected_cols]) + '\n'
 

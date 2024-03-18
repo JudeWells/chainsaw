@@ -11,7 +11,7 @@ def test_basic_usage(tmp_path):
     af_id = "AF-A0A0A9LVA1-F1-model_v4"
     example_structure_path = DATA_DIR / f"{af_id}.pdb"
     expected_cols = [
-        ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'uncertainty'],
+        ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence'],
         ['AF-A0A0A9LVA1-F1-model_v4', 'aed99aecb8126442b8129ea77da917af', '16', '0', 'NULL', '0.0051'],
     ]
     expected_output = "\n".join(["\t".join(row) for row in expected_cols])
