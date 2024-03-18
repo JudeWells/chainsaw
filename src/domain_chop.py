@@ -199,10 +199,7 @@ class PairwiseDomainPredictor(nn.Module):
                 recycle_channels = torch.zeros(1, 2, n_res, n_res)
                 # Concatenate the original tensor and the zeros tensor along the second dimension
                 x = torch.cat((x, recycle_channels), dim=1)
-                x = x.to(self.device)
                 x = self.recycle_predict(x)
-        else:
-            x = x.to(self.device)
         y_pred = self.predict_pairwise(x)
         domain_dicts, confidence = self.domains_from_pairwise(y_pred)
         if self.post_process_domains:

@@ -37,7 +37,7 @@ class PredictionResultsFile:
     Writes prediction results to a file in chunks
     """
     
-    COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence']
+    COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence', 'time_sec']
 
     def __init__(self, 
                  csv_path: Path, *, 
@@ -99,6 +99,7 @@ class PredictionResultsFile:
             'ndom': res.ndom,
             'chopping': res.chopping if res.chopping is not None else 'NULL',
             'confidence': f'{res.confidence:.3g}' if res.confidence is not None else 'NULL',
+            'time_sec': f'{res.time_sec}' if res.time_sec is not None else 'NULL',
         }
         csv_writer.writerow(row)
 
@@ -131,11 +132,6 @@ class PredictionResultsFile:
         """
         Check if the chain_id already exists in the file
         """
-        # msg = (
-        #     f"checking if result '{chain_id}' exists "
-        #     f"({len(self._results_by_id)} results, {len(self._results_by_id)} unflushed results)"
-        # )
-        # LOG.debug(msg)
         if chain_id in self._results_by_id:
             return True
         if chain_id in self._unflushed_results_by_id:

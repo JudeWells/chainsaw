@@ -75,9 +75,6 @@ def inference_time_create_features(pdb_path, feature_config, chain="A", *,
         model_structure = get_model_structure(pdb_path)
 
     dist_matrix = get_distance(model_structure, chain=chain)
-
-    n_res = dist_matrix.shape[-1]
-
     if renumber_pdbs:
         output_pdb_path = pdb_path.replace('.pdb', '_renum.pdb').replace('.cif', '_renum.cif')
         renum_pdb_file(pdb_path, output_pdb_path)
@@ -107,12 +104,36 @@ def inference_time_create_features(pdb_path, feature_config, chain="A", *,
     return torch.Tensor(stacked_features)
 
 
+def distance_matrix(x):
+    """Compute the distance matrix.
+
+    Returns the matrix of all pair-wise distances.
+
+    Parameters
+    ----------
+    x : (M, K) array_like
+        Matrix of M vectors in K dimensions.
+    p : float, 1 <= p <= infinity
+        Which Minkowski p-norm to use.
+    Returns
+    -------
+    result : (M, M) ndarray
+        Matrix containing the distance from every vector in `x` to every vector
+        in `x`.
+    """
+    x1 = x[:, np.newaxis, :]  # Expand x to 3D for broadcasting, shape (M, 1, K)
+    x2 = x[np.newaxis, :, :]  # Expand x to 3D for broadcasting, shape (1, M, K)
+
+    distance_matrix = np.sum(np.abs(x2 - x1) ** 2, axis=-1) ** 0.5
+
+    return distance_matrix.astype(np.float16)
+
 
 def get_distance(structure_model: Bio.PDB.Structure, chain='A'):
     alpha_coords = np.array([residue['CA'].get_coord() for residue in \
                              structure_model[chain].get_residues() if Bio.PDB.is_aa(residue) and \
-                             'CA' in residue and residue.get_resname() in _3to1])
-    x = distance_matrix(alpha_coords, alpha_coords)
+                             'CA' in residue and residue.get_resname() in _3to1], dtype=np.float16)
+    x = distance_matrix(alpha_coords)
     return x
 
 

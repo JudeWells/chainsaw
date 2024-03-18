@@ -32,7 +32,7 @@ from src.utils.pymol_3d_visuals import generate_pymol_image
 
 
 LOG = logging.getLogger(__name__)
-OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence']
+OUTPUT_COLNAMES = ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence', 'time_sec']
 ACCEPTED_STRUCTURE_FILE_SUFFIXES = ['.pdb', '.cif']
 
 
@@ -70,11 +70,11 @@ def load_model(*,
                remove_disordered_domain_threshold: float = 0.35,
                min_ss_components: int = 2,
                min_domain_length: int = 30,
-               ss_mod: bool = False):
+               post_process_domains: bool = True,):
     config = common_utils.load_json(os.path.join(model_dir, "config.json"))
     feature_config = common_utils.load_json(os.path.join(model_dir, "feature_config.json"))
     config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
-    config["learner"]["post_process_domains"] = True
+    config["learner"]["post_process_domains"] = post_process_domains
     config["learner"]["min_ss_components"] = min_ss_components
     config["learner"]["min_domain_length"] = min_domain_length
     config["learner"]["dist_transform_type"] = config["data"].get("dist_transform", 'min_replace_inverse')
@@ -111,7 +111,8 @@ def predict(model, pdb_path, renumber_pdbs=True, pdbchain=None) -> List[Predicti
                                                     feature_config=model.feature_config,
                                                     chain=pdbchain,
                                                     renumber_pdbs=renumber_pdbs,
-                                                    model_structure=model_structure)
+                                                    model_structure=model_structure,
+                                                   )
 
     A_hat, domain_dict, confidence = model.predict(x)
     # Convert 0-indexed to 1-indexed to match AlphaFold indexing:
@@ -184,7 +185,7 @@ def predict(model, pdb_path, renumber_pdbs=True, pdbchain=None) -> List[Predicti
     num_domains = len(domain_choppings)
     if num_domains == 0:
         chopping_str = None
-
+    runtime = round(time.time() - start, 3)
     result = PredictionResult(
         pdb_path=pdb_path,
         sequence_md5=model_structure_md5,
@@ -192,9 +193,9 @@ def predict(model, pdb_path, renumber_pdbs=True, pdbchain=None) -> List[Predicti
         ndom=num_domains,
         chopping=chopping_str,
         confidence=confidence,
+        time_sec=runtime,
     )
 
-    runtime = time.time() - start
     LOG.info(f"Runtime: {round(runtime, 3)}s")
     return result
 
@@ -211,6 +212,7 @@ def write_csv_results(csv_writer, prediction_results: List[PredictionResult]):
             'ndom': res.ndom,
             'chopping': res.chopping if res.chopping is not None else 'NULL',
             'confidence': f'{res.confidence:.3g}' if res.confidence is not None else 'NULL',
+            'time_sec': f'{res.time_sec}' if res.time_sec is not None else 'NULL',
         }
         csv_writer.writerow(row)
 
@@ -234,6 +236,7 @@ def main(args):
         remove_disordered_domain_threshold=args.remove_disordered_domain_threshold,
         min_ss_components=args.min_ss_components,
         min_domain_length=args.min_domain_length,
+        post_process_domains=args.post_process_domains,
     )
     os.makedirs(outer_save_dir, exist_ok=True)
     output_path = Path(args.output).absolute()
@@ -261,7 +264,7 @@ def main(args):
 
             pdb_path = os.path.join(structure_dir, fname)
             LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
-            result = predict(model, pdb_path, pdbchain=pdb_chain_id)
+            result = predict(model, pdb_path, pdbchain=pdb_chain_id, renumber_pdbs=args.renumber_pdbs)
             prediction_results_file.add_result(result)
             if args.pymol_visual:
                 generate_pymol_image(
@@ -295,7 +298,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_dir', type=str,
-                        default=f'{constants.REPO_ROOT}/saved_models/secondary_structure_epoch17/version_2',
+                        default=f'{constants.REPO_ROOT}/saved_models/model_v3',
                         help='path to model directory must contain model.pt and config.json')
     parser.add_argument('--output', '-o', type=str, required=True,
                         help='write results to this file')
@@ -311,6 +314,7 @@ def parse_args():
     parser.add_argument('--pdb_id', type=str, default=None, help='single pdb id')
     parser.add_argument('--pdb_id_list_file', type=str, default=None, help='path to file containing uniprot ids')
     parser.add_argument('--save_dir', type=str, default='results', help='path where results and images will be saved')
+    parser.add_argument('--no_post_processing', dest='post_process_domains', action='store_false')
     parser.add_argument('--remove_disordered_domain_threshold', type=float, default=0.35,
                         help='if the domain is less than this proportion secondary structure, it will be removed')
     parser.add_argument('--min_domain_length', type=int, default=30,
@@ -321,6 +325,8 @@ def parse_args():
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true',
                         help='whether to generate pymol images')
     parser.add_argument('--use_first_chain', default=False, action="store_true", help='use the first chain in the structure (rather than "A")')
+    parser.add_argument('--renumber_pdbs', default=False, action="store_true", help='renumber pdb files')
+
     args = parser.parse_args()
     return args
 
