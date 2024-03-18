@@ -95,12 +95,14 @@ def inference_time_create_features(pdb_path, feature_config, chain="A", *,
     os.remove(ss_filepath)
     LOG.info(f"Distance matrix shape: {dist_matrix.shape}, SS matrix shape: {helix.shape}")
     if feature_config['ss_bounds']:
-        stacked_features = np.stack((dist_matrix, helix, strand, helix_boundaries, strand_boundaries), axis=0)
+        if feature_config['same_channel_boundaries_and_ss']:
+            helix_boundaries[helix == 1] = 1
+            strand_boundaries[strand == 1] = 1
+            stacked_features = np.stack((dist_matrix, helix_boundaries, strand_boundaries), axis=0)
+        else:
+            stacked_features = np.stack((dist_matrix, helix, strand, helix_boundaries, strand_boundaries), axis=0)
     else:
         stacked_features = np.stack((dist_matrix, helix, strand), axis=0)
-    # if feature_config['add_recycling']:
-    #     recycle_dimensions = np.zeros([2, n_res, n_res]).astype(np.float32)
-    #     stacked_features = np.concatenate((stacked_features, recycle_dimensions), axis=0)
     stacked_features = stacked_features[None] # add batch dimension
     return torch.Tensor(stacked_features)
 
