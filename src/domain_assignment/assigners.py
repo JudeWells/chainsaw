@@ -34,10 +34,11 @@ class SparseLowRank(BaseAssigner):
 
     def assign_domains(self, y_pred):
         # N x K, columns are then indicator vectors
+        epsilon = 1e-6
         V, loss = greedy_V(y_pred, N_iters=self.N_iters, K_init=self.K_init, cost_type=self.cost_type)
         K = V.shape[-1]
         A = V@V.T
-        average_likelihood = np.exp((A * np.log(y_pred) + (1-(A))*np.log(1-y_pred)).mean())
+        average_likelihood = np.exp((A * np.log(y_pred+epsilon) + (1-(A))*np.log(1-y_pred+epsilon)).mean())
         # throw away small clusters
         V = np.where(
             V.sum(0, keepdims=True) < self.linker_threshold,  # 1, K
