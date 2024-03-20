@@ -19,8 +19,7 @@ import sys
 import time
 from pathlib import Path
 from typing import List
-
-import Bio.PDB
+from torch import compile as torch_compile
 
 from src import constants, featurisers
 from src.domain_assignment.util import convert_domain_dict_strings
@@ -81,8 +80,12 @@ def load_model(*,
     config["learner"]["distance_denominator"] = config["data"].get("distance_denominator", None)
     learner = pairwise_predictor(config["learner"], output_dir=model_dir)
     learner.feature_config = feature_config
-    learner.eval()
     learner.load_checkpoints()
+    learner.eval()
+    try:
+        learner = torch_compile(learner)
+    except:
+        pass
     return learner
 
 

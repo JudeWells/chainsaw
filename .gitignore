@@ -22,5 +22,6 @@ no_recycle_fb_test_result*
 no_recycle_fb_test_results.tsv
 no_recycle_fb_test_results_v1_OLD
 no_recycle_fb_test_results_v2_OLD
+*.tsv
 model_v3_predictions*
 
