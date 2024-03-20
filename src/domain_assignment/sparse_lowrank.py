@@ -71,12 +71,8 @@ def greedy_V(Y, N_iters=3, K_init=4, cost_type="mse"):
     N_iters: number of iterations
     K_init: initial number of columns of V, adjust this for tweaking performance
     """
-
-    # assert that Y is symmetric
-    # NOTE: the code below assumes Y is symmetric, otherwise will be wrong
-    Y = (Y + Y.T)/2
-
-    V_hat = np.zeros((Y.shape[0], K_init), dtype=int)
+    Y = (Y + Y.T) / 2 # required for consistency with model_v1
+    V_hat = np.zeros((Y.shape[0], K_init), dtype=np.uint8)
     if cost_type == "mse":
         loss = mse_loss(V_hat, Y) # initial loss for the zero matrix V_hat = 0
     elif cost_type == "nll":
