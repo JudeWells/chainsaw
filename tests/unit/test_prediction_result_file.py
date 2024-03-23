@@ -19,6 +19,7 @@ def create_n_mock_results():
                 nres=1234,
                 chopping="12-34_56-78,90-123",
                 confidence=0.0123,
+                time_sec=0.1234,
             ) for i in range(n)
         ]
     return _create_n_mock_results
@@ -34,7 +35,7 @@ def test_chunked_results(tmp_path, create_n_mock_results):
     result_file = PredictionResultsFile(expected_path, chunk_size=20)
     results = create_n_mock_results(50)
     expected_headers = '\t'.join([
-        'chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence'
+        'chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence', 'time_sec'
     ])
 
     assert expected_path.exists() == False

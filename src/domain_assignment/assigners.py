@@ -57,7 +57,7 @@ class SparseLowRank(BaseAssigner):
             if cluster_inds.size > 0:
                 assignments[f"domain_{domain_ix}"] = cluster_inds
                 domain_ix += 1
-        return assignments, average_likelihood
+        return assignments, round(average_likelihood, 4)
 
 
 class SpectralClustering(BaseAssigner):

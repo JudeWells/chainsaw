@@ -15,17 +15,17 @@ DATA_DIR = REPO_ROOT / "tests" / "fixtures"
     (
         "AF-A0A1W2PQ64-F1-model_v4", 
         [], 
-        ['AF-A0A1W2PQ64-F1-model_v4', 'a126e3d4d1a2dcadaa684287855d19f4', '194', '2', '7-40_95-193,42-91', '0.0444']
+        ['AF-A0A1W2PQ64-F1-model_v4', 'a126e3d4d1a2dcadaa684287855d19f4', '194', '2', '7-40_95-193,42-91', '0.831']
     ),
     (
         "4wgvC", 
         ["--use_first_chain"], 
-        ['4wgvC', 'a3a3ba0368e780f401d28f9dbf00e867', '395', '1', '50-438', '0.00601']
+        ['4wgvC', 'a3a3ba0368e780f401d28f9dbf00e867', '395', '1', '50-438', '0.928']
     ),
     (
         "5yclA", 
         ["--use_first_chain"], 
-        ['5yclA', '7990687b137db1903004b3a9e97e3f09', '131', '2', '7-71,74-140', '0.0146']
+        ['5yclA', '7990687b137db1903004b3a9e97e3f09', '131', '2', '7-71,74-140', '0.912']
     ),
 ))
 def test_basic_usage(tmp_path, model_id, extra_args, result_cols):
@@ -39,7 +39,7 @@ def test_basic_usage(tmp_path, model_id, extra_args, result_cols):
     expected_output = "\r\n".join(["\t".join(row) for row in expected_cols])
     orig_path = Path.cwd()
     script_path = REPO_ROOT / "get_predictions.py"
-
+    model_path = REPO_ROOT / "saved_models" / "model_v1"
     results_file = tmp_path / "results.tsv"
 
     def run_chainsaw(cmd_args):
@@ -60,7 +60,9 @@ def test_basic_usage(tmp_path, model_id, extra_args, result_cols):
 
         return completed_process, results_output
  
-    base_args =  ["python", str(script_path), "--structure_directory", ".", "-o", str(results_file)]
+    base_args = ["python", str(script_path), "--structure_directory", ".", "-o", str(results_file),
+                 "--model_dir", str(model_path), "--renumber_pdbs",
+                 ]
 
     base_args.extend(extra_args)
 
@@ -87,4 +89,7 @@ def test_basic_usage(tmp_path, model_id, extra_args, result_cols):
 
 
 def normalise_output(output_str):
+    if 'time_sec' in output_str:
+        lines = output_str.split("\n")
+        output_str = "\n".join(["\t".join(l.split("\t")[:-1]) for l in lines])
     return output_str.replace("\r\n", "\n")

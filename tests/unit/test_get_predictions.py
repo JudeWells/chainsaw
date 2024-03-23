@@ -28,16 +28,16 @@ def test_predict_from_pdb_file(tmp_path, capsys):
         nres=expected_nres, 
         ndom=3,
         chopping='7-40_95-193,42-91',
-        confidence=0.0123,
+        confidence=0.8307,
     )
 
     tmp_results_dir = tmp_path / "results"
     tmp_results_dir.mkdir()
 
-    expected_model_dir = Path(f'{REPO_ROOT}/saved_models/secondary_structure_epoch17/version_2')
+    expected_model_dir = Path(f'{REPO_ROOT}/saved_models/model_v1')
     tmp_model_dir = tmp_path / "models"
     tmp_model_dir.mkdir()
-    for model_fname in ['weights.pt', 'config.json']:
+    for model_fname in ['weights.pt', 'config.json', 'feature_config.json']:
         shutil.copyfile(str(expected_model_dir / model_fname), str(tmp_model_dir / model_fname))
 
     tmp_structure_file = tmp_path / f"{example_af_id}.pdb"
@@ -52,6 +52,7 @@ def test_predict_from_pdb_file(tmp_path, capsys):
     assert normalise_result(result) == normalise_result(expected_result)
 
 def normalise_result(res):
+    res.confidence = round(res.confidence, 4)
     res.pdb_path = '__PDB_PATH__'
 
 

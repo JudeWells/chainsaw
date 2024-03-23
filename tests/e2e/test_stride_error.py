@@ -2,8 +2,7 @@ import os
 from pathlib import Path
 import subprocess
 
-REPO_ROOT = Path(__file__).parent.parent.parent.resolve()
-DATA_DIR = REPO_ROOT / "tests" / "fixtures"
+from test_basic_usage import REPO_ROOT, DATA_DIR, normalise_output
 
 def test_basic_usage(tmp_path):
 
@@ -12,11 +11,12 @@ def test_basic_usage(tmp_path):
     example_structure_path = DATA_DIR / f"{af_id}.pdb"
     expected_cols = [
         ['chain_id', 'sequence_md5', 'nres', 'ndom', 'chopping', 'confidence'],
-        ['AF-A0A0A9LVA1-F1-model_v4', 'aed99aecb8126442b8129ea77da917af', '16', '0', 'NULL', '0.0051'],
+        ['AF-A0A0A9LVA1-F1-model_v4', 'aed99aecb8126442b8129ea77da917af', '16', '0', 'NULL', '0.932'],
     ]
     expected_output = "\n".join(["\t".join(row) for row in expected_cols])
     orig_path = Path.cwd()
     script_path = REPO_ROOT / "get_predictions.py"
+    model_path = REPO_ROOT / "saved_models" / "model_v1"
 
     results_file = tmp_path / "test_output.tsv"
 
@@ -24,7 +24,9 @@ def test_basic_usage(tmp_path):
     results_output = None
     try:
         os.chdir(str(tmp_path))
-        cmd_args = ["python", str(script_path), "--structure_file", str(example_structure_path), "-o", str(results_file)]
+        cmd_args = ["python", str(script_path), "--structure_file", str(example_structure_path), "-o", str(results_file),
+                    "--model_dir", str(model_path), "--renumber_pdbs",
+                    ]
         completed_process = subprocess.run(cmd_args, check=True, capture_output=True)
         results_output = results_file.read_text().strip()
     except subprocess.CalledProcessError as e:
@@ -43,8 +45,3 @@ def test_basic_usage(tmp_path):
 
     # check that the logs warned about stride failing
     assert "Stride failed" in completed_process.stderr.decode()
-
-
-
-def normalise_output(output_str):
-    return output_str.replace("\r\n", "\n")
