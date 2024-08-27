@@ -51,6 +51,7 @@ jobs:
       shell: bash
       run: |
         if [ "$RUNNER_OS" == "Windows" ]; then
+          export PATH="/c/msys64/usr/bin:$PATH"
           source chswEnv/Scripts/activate
         else
           source chswEnv/bin/activate
