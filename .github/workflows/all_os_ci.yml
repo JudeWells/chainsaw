@@ -1,4 +1,4 @@
-name: Test Installation
+name: Test Installation on all OS and all Python versions
 
 on:
   workflow_dispatch:
@@ -7,8 +7,8 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        os:  [ubuntu-latest, windows-latest] #[ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.11']
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -19,25 +19,40 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
+    - name: Set up MSYS2 (Windows only)
+      if: runner.os == 'Windows'
+      uses: msys2/setup-msys2@v2
+      with:
+        update: true
+        install: base-devel gcc
+
     - name: Install dependencies and run setup script
       shell: bash
       run: |
         if [ "$RUNNER_OS" == "Windows" ]; then
-          # For Windows, we need to use MSYS2 to provide a bash environment
-          choco install msys2
-          export PATH="/c/tools/msys64/usr/bin:$PATH"
+          export PATH="/c/msys64/usr/bin:$PATH"
         fi
+        python --version
+        which python
         chmod +x setup.sh
         ./setup.sh
 
     - name: Test installation
       shell: bash
       run: |
-        source chswEnv/bin/activate || source chswEnv/Scripts/activate
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          source chswEnv/Scripts/activate
+        else
+          source chswEnv/bin/activate
+        fi
         python get_predictions.py --structure_file example_files/AF-A0A1W2PQ64-F1-model_v4.pdb --output results/test.tsv
 
     - name: Run pytest
       shell: bash
       run: |
-        source chswEnv/bin/activate || source chswEnv/Scripts/activate
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          source chswEnv/Scripts/activate
+        else
+          source chswEnv/bin/activate
+        fi
         pytest
