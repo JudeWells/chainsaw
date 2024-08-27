@@ -84,9 +84,10 @@ compile_stride() {
 # Check if venv directory chswEnv exists
 if [ ! -d "$SCRIPT_DIR/chswEnv" ]; then
     echo "Creating virtual environment..."
-
+    if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
+       python -m venv "$SCRIPT_DIR/chswEnv"
     # Try Python 3.11, then 3.10, then 3.9
-    if command_exists python3.11; then
+    elif command_exists python3.11; then
         python3.11 -m venv "$SCRIPT_DIR/chswEnv"
         echo "Created virtual environment with Python 3.11"
     elif command_exists python3.10; then
