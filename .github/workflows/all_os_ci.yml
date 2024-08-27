@@ -57,6 +57,7 @@ jobs:
           source chswEnv/bin/activate
         fi
         python -c "import sys; print(sys.path)"
+        python -c "import torch; print(torch.__version__)"
         pwd
         pytest -v
         pytest
