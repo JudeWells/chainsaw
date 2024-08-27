@@ -1,0 +1,43 @@
+name: Test Installation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies and run setup script
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          # For Windows, we need to use MSYS2 to provide a bash environment
+          choco install msys2
+          export PATH="/c/tools/msys64/usr/bin:$PATH"
+        fi
+        chmod +x setup.sh
+        ./setup.sh
+
+    - name: Test installation
+      shell: bash
+      run: |
+        source chswEnv/bin/activate || source chswEnv/Scripts/activate
+        python get_predictions.py --structure_file example_files/AF-A0A1W2PQ64-F1-model_v4.pdb --output results/test.tsv
+
+    - name: Run pytest
+      shell: bash
+      run: |
+        source chswEnv/bin/activate || source chswEnv/Scripts/activate
+        pytest
