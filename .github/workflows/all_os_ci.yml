@@ -55,4 +55,7 @@ jobs:
         else
           source chswEnv/bin/activate
         fi
+        python -c "import sys; print(sys.path)"
+        pwd
+        pytest -v
         pytest
