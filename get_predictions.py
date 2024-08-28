@@ -229,9 +229,11 @@ def get_csv_writer(file_pointer):
 
 def main(args):
     outer_save_dir = args.save_dir
-    pdb_chain_id = 'A'
     if args.use_first_chain:
+        # use the first chain in the PDB file
         pdb_chain_id = None
+    else:
+        pdb_chain_id = 'A'
 
     input_method = get_input_method(args)
     model = load_model(
@@ -327,7 +329,7 @@ def parse_args():
                              'it will be removed')
     parser.add_argument('--pymol_visual', dest='pymol_visual', action='store_true',
                         help='whether to generate pymol images')
-    parser.add_argument('--use_first_chain', default=False, action="store_true", help='use the first chain in the structure (rather than "A")')
+    parser.add_argument('--use_first_chain', default=True, action="store_true", help='use the first chain in the structure (rather than "A")')
     parser.add_argument('--renumber_pdbs', default=False, action="store_true", help='renumber pdb files')
 
     args = parser.parse_args()
