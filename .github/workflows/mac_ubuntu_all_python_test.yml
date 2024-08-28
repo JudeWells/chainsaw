@@ -1,4 +1,4 @@
-name: Test Installation on mac+linux and all Python versions
+name: Test Installation on mac linux and all Python versions
 
 on:
   workflow_dispatch:
