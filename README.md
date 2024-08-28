@@ -19,6 +19,8 @@ Optional:
 To visualise the domain assignments, ensure that you have pymol installed and update the
 `PYMOL_EXE` variable in `src/constants.py` to point to the pymol executable.
 
+Chainsaw is tested on Linux and MacOS. It may work on Windows but this is not guaranteed.
+
 ## Usage
 `python get_predictions.py --structure_file /path/to/file.pdb`
 or
