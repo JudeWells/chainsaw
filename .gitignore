@@ -19,4 +19,4 @@ stride/*
 !stride/stride.tgz
 .vscode/
 model_v3_predictions*
-
+chswEnv/
