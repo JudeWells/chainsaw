@@ -37,8 +37,8 @@ def get_torch_device(force_cpu=False):
     try:
         if torch.cuda.is_available() and not force_cpu:
             device_string = "cuda"
-        # elif torch.backends.mps.is_available() and not force_cpu:
-        #     device_string = "mps"
+        elif torch.backends.mps.is_available() and not force_cpu:
+            device_string = "mps"
         else:
             device_string = "cpu"
     except Exception as exc:
