@@ -29,6 +29,10 @@ or
 Note that the output predicted boundaries are based on residue consecutive indexing
 starting from 1 (not based on pdb auth numbers).
 
+To process a directory faster, add `--workers N`: with a GPU, N processes prepare the inputs and assign domains while
+the network runs on the GPU (about 8 works well); on a CPU, N processes each run whole predictions with a share of
+the threads (about 4). Results are identical and in the same order.
+
 ## Installation Troubleshooting
 If setup.sh fails follow the instructions below:
 

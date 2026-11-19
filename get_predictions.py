@@ -14,11 +14,21 @@ import argparse
 import csv
 import hashlib
 import logging
+import multiprocessing
 import os
+import signal
 import sys
 import time
+from collections import deque
+from concurrent.futures import ProcessPoolExecutor
+from contextlib import contextmanager
+from dataclasses import dataclass, replace
+from functools import partial
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
+
+import numpy as np
+import torch
 from torch import compile as torch_compile
 
 from src import constants, featurisers
@@ -69,7 +79,8 @@ def load_model(*,
                remove_disordered_domain_threshold: float = 0.35,
                min_ss_components: int = 2,
                min_domain_length: int = 30,
-               post_process_domains: bool = True,):
+               post_process_domains: bool = True,
+               force_cpu: bool = False):
     config = common_utils.load_json(os.path.join(model_dir, "config.json"))
     feature_config = common_utils.load_json(os.path.join(model_dir, "feature_config.json"))
     config["learner"]["remove_disordered_domain_threshold"] = remove_disordered_domain_threshold
@@ -78,46 +89,68 @@ def load_model(*,
     config["learner"]["min_domain_length"] = min_domain_length
     config["learner"]["dist_transform_type"] = config["data"].get("dist_transform", 'min_replace_inverse')
     config["learner"]["distance_denominator"] = config["data"].get("distance_denominator", None)
-    learner = pairwise_predictor(config["learner"], output_dir=model_dir)
+    learner = pairwise_predictor(config["learner"], force_cpu=force_cpu, output_dir=model_dir)
     learner.feature_config = feature_config
     learner.load_checkpoints()
     learner.eval()
     try:
         learner = torch_compile(learner)
-    except:
+    except Exception:
         pass
     return learner
 
 
-def predict(model, pdb_path, renumber_pdbs=True, pdbchain=None) -> List[PredictionResult]:
-    """
-    Makes the prediction and returns a list of PredictionResult objects
-    """
+@dataclass
+class PreparedFeatures:
+    """CPU-prepared inputs and residue metadata for one chain (picklable across worker processes)."""
+
+    pdb_path: str
+    res_label_by_index: Dict[int, str]
+    nres: int
+    sequence_md5: str
+    x: Optional[np.ndarray]
+    elapsed: float
+
+
+def predict(model, pdb_path, renumber_pdbs=True, pdbchain=None) -> PredictionResult:
+    """Make a domain prediction for one structure file."""
+    prepared = prepare_features(pdb_path, model.feature_config, renumber_pdbs=renumber_pdbs, pdbchain=pdbchain)
     start = time.time()
+    _, domain_dict, confidence = model.predict(torch.from_numpy(prepared.x))
+    return _make_result(replace(prepared, elapsed=prepared.elapsed + time.time() - start), domain_dict, confidence)
 
-    # get model structure metadata
-    model_structure = featurisers.get_model_structure(pdb_path)
 
-    if pdbchain is None:
-        LOG.warning(f"No chain specified for {pdb_path}, using first chain")
-        # get all the chain ids from the model structure
-        all_chain_ids = [c.id for c in model_structure.get_chains()]
-        # take the first chain id
-        pdbchain = all_chain_ids[0]
-
-    model_residues = featurisers.get_model_structure_residues(model_structure, chain=pdbchain)
-    model_res_label_by_index = { int(r.index): str(r.res_label) for r in model_residues}
-    model_structure_seq = "".join([r.aa for r in model_residues])
+def prepare_features(pdb_path, feature_config, renumber_pdbs=True, pdbchain=None) -> PreparedFeatures:
+    """Run the CPU preprocessing stage of `predict`: parse structure, extract residues, and build input tensor."""
+    start = time.time()
+    pdbchain, model_residues, dist_matrix = featurisers.load_chain(pdb_path, chain=pdbchain)
+    model_res_label_by_index = {int(r.index): str(r.res_label) for r in model_residues}
+    model_structure_seq = "".join(r.aa for r in model_residues)
     model_structure_md5 = hashlib.md5(model_structure_seq.encode('utf-8')).hexdigest()
 
-    x = featurisers.inference_time_create_features(pdb_path,
-                                                    feature_config=model.feature_config,
-                                                    chain=pdbchain,
-                                                    renumber_pdbs=renumber_pdbs,
-                                                    model_structure=model_structure,
-                                                   )
+    x = featurisers.inference_time_create_features(
+        pdb_path,
+        feature_config=feature_config,
+        chain=pdbchain,
+        renumber_pdbs=renumber_pdbs,
+        dist_matrix=dist_matrix,
+    )
+    return PreparedFeatures(
+        pdb_path=pdb_path,
+        res_label_by_index=model_res_label_by_index,
+        nres=len(model_structure_seq),
+        sequence_md5=model_structure_md5,
+        x=x.numpy(),
+        elapsed=time.time() - start,
+    )
 
-    A_hat, domain_dict, confidence = model.predict(x)
+
+def _make_result(prepared: PreparedFeatures, domain_dict, confidence) -> PredictionResult:
+    """Format the domain assignment of one chain (the end of the original `predict`)."""
+    start = time.time()
+    pdb_path = prepared.pdb_path
+    model_res_label_by_index = prepared.res_label_by_index
+    model_structure_md5 = prepared.sequence_md5
     # Convert 0-indexed to 1-indexed to match AlphaFold indexing:
     domain_dict = [{k: [r + 1 for r in v] for k, v in d.items()} for d in domain_dict]
     names_str, bounds_str = convert_domain_dict_strings(domain_dict[0])
@@ -188,11 +221,11 @@ def predict(model, pdb_path, renumber_pdbs=True, pdbchain=None) -> List[Predicti
     num_domains = len(domain_choppings)
     if num_domains == 0:
         chopping_str = None
-    runtime = round(time.time() - start, 3)
+    runtime = round(prepared.elapsed + time.time() - start, 3)
     result = PredictionResult(
         pdb_path=pdb_path,
         sequence_md5=model_structure_md5,
-        nres=len(model_structure_seq),
+        nres=prepared.nres,
         ndom=num_domains,
         chopping=chopping_str,
         confidence=confidence,
@@ -229,14 +262,14 @@ def get_csv_writer(file_pointer):
 
 def main(args):
     outer_save_dir = args.save_dir
-    if args.use_first_chain:
-        # use the first chain in the PDB file
-        pdb_chain_id = None
-    else:
-        pdb_chain_id = 'A'
+    pdb_chain_id = None if args.use_first_chain else 'A'
 
     input_method = get_input_method(args)
-    model = load_model(
+    for required in ("config.json", "feature_config.json"):
+        required_path = os.path.join(args.model_dir, required)
+        if not os.path.isfile(required_path):
+            raise FileNotFoundError(f"Model file not found: '{required_path}'")
+    model_kwargs = dict(
         model_dir=args.model_dir,
         remove_disordered_domain_threshold=args.remove_disordered_domain_threshold,
         min_ss_components=args.min_ss_components,
@@ -255,31 +288,37 @@ def main(args):
 
     if input_method == 'structure_directory':
         structure_dir = args.structure_directory
-        for idx, fname in enumerate(os.listdir(structure_dir)):
+        pdb_paths = []
+        seen_chain_ids = set()  # match upstream: skip duplicate stems (e.g. foo.pdb + foo.cif) in the same run
+        for fname in os.listdir(structure_dir):
             suffix = Path(fname).suffix
             LOG.debug(f"Checking file {fname} (suffix: {suffix}) ..")
             if suffix not in ACCEPTED_STRUCTURE_FILE_SUFFIXES:
                 continue
 
             chain_id = Path(fname).stem
-            result_exists = prediction_results_file.has_result_for_chain_id(chain_id)
-            if result_exists:
+            if chain_id in seen_chain_ids or prediction_results_file.has_result_for_chain_id(chain_id):
                 LOG.info(f"Skipping file {fname} (result for '{chain_id}' already exists)")
                 continue
+            seen_chain_ids.add(chain_id)
+            pdb_paths.append(os.path.join(structure_dir, fname))
 
-            pdb_path = os.path.join(structure_dir, fname)
-            LOG.info(f"Making prediction for file {fname} (chain '{chain_id}')")
-            result = predict(model, pdb_path, pdbchain=pdb_chain_id, renumber_pdbs=args.renumber_pdbs)
-            prediction_results_file.add_result(result)
-            if args.pymol_visual:
-                generate_pymol_image(
-                    pdb_path=str(result.pdb_path),
-                    chopping=result.chopping or '',
-                    image_out_path=os.path.join(str(outer_save_dir), f'{result.pdb_path.name.replace(".pdb", "")}.png'),
-                    path_to_script=os.path.join(str(outer_save_dir), 'image_gen.pml'),
-                    pymol_executable=constants.PYMOL_EXE,
-                )
+        if pdb_paths:
+            for result in _predict_all(pdb_paths, model_kwargs, pdb_chain_id, args.renumber_pdbs, args.workers):
+                prediction_results_file.add_result(result)
+                if args.pymol_visual:
+                    generate_pymol_image(
+                        pdb_path=str(result.pdb_path),
+                        chopping=result.chopping or '',
+                        image_out_path=os.path.join(
+                            str(outer_save_dir),
+                            f'{result.pdb_path.name.replace(".pdb", "")}.png',
+                        ),
+                        path_to_script=os.path.join(str(outer_save_dir), 'image_gen.pml'),
+                        pymol_executable=constants.PYMOL_EXE,
+                    )
     elif input_method == 'structure_file':
+        model = load_model(**model_kwargs)
         result = predict(model, args.structure_file, pdbchain=pdb_chain_id)
         prediction_results_file.add_result(result)
         if args.pymol_visual:
@@ -295,6 +334,110 @@ def main(args):
 
     prediction_results_file.flush()
     LOG.info("DONE")
+
+
+_WORKER_MODEL = None  # per-worker CPU model
+
+
+@contextmanager
+def _worker_pool(workers: int, model_kwargs: dict, threads: int):
+    """Create a ProcessPoolExecutor that avoids GPU inheritance and cleans up workers on error or SIGTERM."""
+    methods = multiprocessing.get_all_start_methods()
+    # Use forkserver/spawn so workers never fork from a CUDA-initialized main process.
+    mp_ctx = multiprocessing.get_context("forkserver" if "forkserver" in methods else "spawn")
+    executor = ProcessPoolExecutor(
+        max_workers=workers,
+        mp_context=mp_ctx,
+        initializer=_init_worker,
+        initargs=(model_kwargs, threads),
+    )
+    # Convert SIGTERM into SystemExit so scheduler timeouts / `kill` run worker cleanup (otherwise
+    # sibling workers keep the call-queue pipe open and survive parent SIGTERM).
+    prev_sigterm = signal.signal(signal.SIGTERM, lambda signum, _f: sys.exit(128 + signum))
+    try:
+        yield executor
+    except BaseException:
+        for proc in list((executor._processes or {}).values()):
+            proc.terminate()
+        raise
+    finally:
+        executor.shutdown(wait=True)
+        signal.signal(signal.SIGTERM, prev_sigterm)
+
+
+def _init_worker(model_kwargs, threads):
+    if not logging.getLogger().handlers:
+        setup_logging()
+    torch.set_num_threads(threads)
+    global _WORKER_MODEL
+    _WORKER_MODEL = load_model(**model_kwargs, force_cpu=True)
+
+
+def _decode_worker(task):
+    """Run domain assignment, post-processing, and formatting in a worker process."""
+    start = time.time()
+    prepared, y_pred, x_post = task
+    x_tensor = torch.from_numpy(x_post) if x_post is not None else None
+    domain_dicts, confidence = _WORKER_MODEL.assign_domains(torch.from_numpy(y_pred), x_tensor)
+    return _make_result(replace(prepared, elapsed=prepared.elapsed + time.time() - start), domain_dicts, confidence)
+
+
+def _predict_worker(task):
+    """Run a full prediction in a worker process (CPU inference)."""
+    pdb_path, renumber_pdbs, pdbchain = task
+    _log_making_prediction(pdb_path)
+    return predict(_WORKER_MODEL, pdb_path, renumber_pdbs=renumber_pdbs, pdbchain=pdbchain)
+
+
+def _run_network(model, prepared: PreparedFeatures):
+    """Run the network stage of `PairwiseDomainPredictor.predict` in the GPU process."""
+    _log_making_prediction(prepared.pdb_path)
+    start = time.time()
+    y_pred, x = model.predict_network(torch.from_numpy(prepared.x))
+    x_post = x.cpu().numpy() if model.post_process_domains else None
+    meta = replace(prepared, x=None, elapsed=prepared.elapsed + time.time() - start)
+    return meta, y_pred.cpu().numpy(), x_post
+
+
+def _predict_all(pdb_paths, model_kwargs, pdbchain, renumber_pdbs, workers=1):
+    """Predict each file in input order using serial, CPU-worker, or GPU-pipeline execution."""
+    n_workers = min(workers, len(pdb_paths))
+    if n_workers <= 1:
+        model = load_model(**model_kwargs)
+        for pdb_path in pdb_paths:
+            _log_making_prediction(pdb_path)
+            yield predict(model, pdb_path, pdbchain=pdbchain, renumber_pdbs=renumber_pdbs)
+        return
+    use_gpu = torch.cuda.is_available()
+    window = 2 * n_workers  # per-stage bound (<= 4 * n_workers across prepare + decode)
+    threads = 1 if use_gpu else max(1, torch.get_num_threads() // n_workers)
+    with _worker_pool(n_workers, model_kwargs, threads) as pool:
+        if not use_gpu:
+            tasks = [(p, renumber_pdbs, pdbchain) for p in pdb_paths]
+            yield from _ordered_map(pool, _predict_worker, tasks, window)
+            return
+        model = load_model(**model_kwargs)
+        prep = partial(
+            prepare_features, feature_config=model.feature_config, renumber_pdbs=renumber_pdbs, pdbchain=pdbchain
+        )
+        prepared = _ordered_map(pool, prep, pdb_paths, window)
+        yield from _ordered_map(pool, _decode_worker, (_run_network(model, p) for p in prepared), window)
+
+
+def _ordered_map(pool, fn, tasks, window):
+    """Submit tasks to `pool` in order, keeping at most `window` tasks in flight at once."""
+    pending = deque()
+    for task in tasks:
+        pending.append(pool.submit(fn, task))
+        if len(pending) >= window:
+            yield pending.popleft().result()
+    while pending:
+        yield pending.popleft().result()
+
+
+def _log_making_prediction(pdb_path):
+    fname = os.path.basename(pdb_path)
+    LOG.info(f"Making prediction for file {fname} (chain '{Path(fname).stem}')")
 
 
 def parse_args():
@@ -331,8 +474,13 @@ def parse_args():
                         help='whether to generate pymol images')
     parser.add_argument('--use_first_chain', default=True, action="store_true", help='use the first chain in the structure (rather than "A")')
     parser.add_argument('--renumber_pdbs', default=False, action="store_true", help='renumber pdb files')
+    parser.add_argument('--workers', type=int, default=1,
+                        help='number of worker processes for --structure_directory (1 = single process); '
+                             'produces identical results in the same order')
 
     args = parser.parse_args()
+    if args.workers < 1:
+        parser.error('--workers must be >= 1')
     return args
 
 

@@ -8,15 +8,15 @@ Objective is to create a secondary structure matrix for each protein
 # should take around 3 minutes for 1000 structures
 """
 
+import logging
 import os
 import re
 import subprocess
-import sys
 
 import numpy as np
 
-from src.constants import REPO_ROOT
-import logging
+from src.utils import pdb_reres
+
 LOG = logging.getLogger(__name__)
 
 
@@ -26,10 +26,14 @@ def calculate_ss(pdbfile, chain, stride_path, ssfile='pdb_ss'):
         args = [stride_path, pdbfile, '-r' + chain]
         LOG.info(f"Running command: {' '.join(args)}")
         try:
-            subprocess.run(args, 
-                        stdout=ssout_file, 
-                        stderr=subprocess.DEVNULL, 
-                        check=True)
+            # close_fds=False lets Python start STRIDE with posix_spawn instead of fork + exec. Forking copies a
+            # large parent's memory map (notably Apple MPS and CUDA single-process runs), whereas posix_spawn costs
+            # ~1 ms. Python's own descriptors are non-inheritable (PEP 446), so nothing extra leaks into STRIDE.
+            subprocess.run(args,
+                        stdout=ssout_file,
+                        stderr=subprocess.DEVNULL,
+                        check=True,
+                        close_fds=False)
         except subprocess.CalledProcessError as e:
             LOG.warning(f"Stride failed on {pdbfile}, creating empty file")
             pass
@@ -58,12 +62,15 @@ def make_ss_matrix(ss_path, nres):
 
 
 def renum_pdb_file(pdb_path, output_pdb_path):
-    pdb_reres_path = REPO_ROOT / 'src/utils/pdb_reres.py'
+    """Renumber residues from 1 in-process via `pdb_reres.run`."""
+    try:
+        with open(pdb_path, 'r') as fh:
+            renumbered = ''.join(pdb_reres.run(fh, 1))
+    except SystemExit as exc:
+        # pdb_reres calls sys.exit(1) when residue numbering would exceed 9999.
+        raise ValueError(f"Failed to renumber '{pdb_path}' (exit {exc.code})") from None
     with open(output_pdb_path, "w") as output_file:
-        subprocess.run([sys.executable, str(pdb_reres_path), pdb_path],
-                       stdout=output_file,
-                       check=True,
-                       text=True)
+        output_file.write(renumbered)
  
 
 def main(chain_ids, pdb_dir, feature_dir, stride_path, reres_path, savedir, job_index=0):

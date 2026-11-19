@@ -35,9 +35,9 @@ def execute_bash_command(bash_command_string):
 
 def get_torch_device(force_cpu=False, use_mps_if_available=False):
     try:
-        if torch.cuda.is_available() and not force_cpu:
+        if not force_cpu and torch.cuda.is_available():
             device_string = "cuda"
-        elif use_mps_if_available and torch.backends.mps.is_available() and not force_cpu:
+        elif not force_cpu and use_mps_if_available and torch.backends.mps.is_available():
             device_string = "mps"
         else:
             device_string = "cpu"

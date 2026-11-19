@@ -56,3 +56,13 @@ def normalise_result(res):
     res.pdb_path = '__PDB_PATH__'
 
 
+def test_force_cpu_skips_cuda_check(monkeypatch):
+    import torch
+    from src.utils import common as common_utils
+
+    called = []
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: called.append(True) or False)
+    assert common_utils.get_torch_device(force_cpu=True) == torch.device("cpu")
+    assert not called
+
+
