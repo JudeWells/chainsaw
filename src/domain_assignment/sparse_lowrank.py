@@ -47,75 +47,67 @@ def null_nll_loss_at_residue(Y, residue_index):
 
 
 def greedy_V(Y, N_iters=3, K_init=4, cost_type="mse"):
-    """ 
-    Learn a binary matrix V, with at most one nonzero entry per row, to minimize
-    
-     || VV' - Y ||_2
-     
-    This is done by initializing a V of all zeros, and then doing a greedy optimization.
-    V is initially D x K_init, where D is the number of residues (i.e., where Y is DxD).
-    K is learned automatically; different values of K_init will not change the result but
-    might be more or less efficient in terms of memory usage. The code keeps track of the 
-    current number of nonzero columns of V, and when all the columns are full it adds extra
-    columns of zeros at the end.
-    
-    Each iteration sweeps through all residues (i.e. rows of V) once.
+    """Learn a binary cluster-assignment matrix V (at most one 1 per row) minimizing ||VV' - Y||_2.
 
-    The implementation relies on additivity of loss to reduce computational cost
-    by only computing required increments to the loss at each iteration.
-
-    
-    INPUTS:
-    
-    Y: matrix of predictions with entries in [0, 1]
-    N_iters: number of iterations
-    K_init: initial number of columns of V, adjust this for tweaking performance
+    Each row of V_hat has at most one nonzero entry, so V_hat[d] @ V_hat.T for residue d placed in
+    cluster k is just the indicator of cluster k's members plus d itself. Maintaining that indicator
+    as a (K, D) uint8 matrix `members` scores all K candidates in one vectorised step while
+    preserving the exact floating-point operations and summation order (contiguous row sums and
+    NumPy-version-dependent scalar promotion) of the original per-candidate loop.
     """
-    Y = (Y + Y.T) / 2 # required for consistency with model_v1
-    V_hat = np.zeros((Y.shape[0], K_init), dtype=np.uint8)
+    Y = (Y + Y.T) / 2  # required for consistency with model_v1
+    D = Y.shape[0]
+    work_dtype = np.result_type(np.uint8, Y.dtype)
+    # NumPy scalar promotion: 2 * <float32 scalar> is float64 in NumPy 1.x, float32 in NumPy 2.x.
+    scalar_dtype = (2 * work_dtype.type(1)).dtype
+
+    Y_sq = Y ** 2
     if cost_type == "mse":
-        loss = mse_loss(V_hat, Y) # initial loss for the zero matrix V_hat = 0
+        loss = Y_sq.sum()  # initial loss for V_hat = 0
     elif cost_type == "nll":
-        loss = nll_loss(V_hat, Y)
+        loss = nll_loss(np.zeros((D, K_init), dtype=np.uint8), Y)
     else:
         raise ValueError(cost_type)
-    K_max = K_init # track number of columns in K_max
 
-    for it in range(N_iters):
-        for d in range(V_hat.shape[0]):
-            # d is a residue index
-            # compute the loss, excluding contribution of this residue
-            # TODO check minus signs are consistent
-            loss_minus_d = loss - mse_loss_at_residue(V_hat, Y, d)
+    one = np.uint8(1)  # uint8 scalar preserves upstream NumPy promotion rules
+    # Per-residue loss contributions when unassigned vs assigned (diagonal term: (1 - Y[d, d])^2).
+    null = 2 * Y_sq.sum(axis=1).astype(scalar_dtype) - np.diagonal(Y).astype(scalar_dtype) ** 2
+    diag_assigned = (one - np.diagonal(Y)).astype(scalar_dtype) ** 2
 
-            # sweep through all K+1 options and compute what the contribution to the loss would be
-            V_hat[d] *= 0
+    K_max = K_init
+    labels = np.full(D, -1, dtype=np.int64)  # cluster of each residue, -1 = unassigned
+    members = np.zeros((K_max, D), dtype=np.uint8)  # members[k, j] = 1 iff residue j is in cluster k
+    buf = np.empty((K_max, D), dtype=work_dtype)
 
-            # loss with no assignment
-            L0 = loss_minus_d + null_mse_loss_at_residue(Y, d)
-            L_opt = np.zeros(K_max)
-            for k in range(K_max):
-                # note this could be vectorized with a bit of work
-                V_hat[d,k] = 1
-                L_opt[k] = loss_minus_d + mse_loss_at_residue(V_hat, Y, d)
-                V_hat[d,k] = 0
+    for _ in range(N_iters):
+        for d in range(D):
+            Yd = Y[d]
+            current = labels[d]
+            # Row d of V_hat @ V_hat.T if d were placed in cluster k: current members of k, plus d.
+            members[:, d] = 1
+            np.subtract(members, Yd, out=buf)
+            np.multiply(buf, buf, out=buf)
+            cost = 2 * buf.sum(axis=1).astype(scalar_dtype) - diag_assigned[d]
+            members[:, d] = 0  # restore candidate column and clear d from its previous cluster before reassigning
 
-            # select the option which minimizes the squared error
+            loss_minus_d = loss - (cost[current] if current >= 0 else null[d])
+            L0 = loss_minus_d + null[d]
+            L_opt = loss_minus_d + cost
             z = np.argmin(L_opt)
             if L_opt[z] < L0:
-                V_hat[d,z] = 1
-            
-            # update loss
-            loss = loss_minus_d + mse_loss_at_residue(V_hat, Y, d)
+                labels[d] = z
+                members[z, d] = 1
+                loss = L_opt[z]
+            else:
+                labels[d] = -1
+                loss = L0
 
-            if z == K_max-1:
-                # Expand V_hat to make room for extra potential clusters (no nonzero columns remain)
-                # TODO: note that if a cluster is "removed" on a later iteration we will miss this.
-                #       probably doesn't matter, just means it is occasionally possible that the V
-                #       that is returned could sometimes have a few nonzero columns.
-                V_hat = np.concatenate((V_hat, np.zeros_like(V_hat)), -1)
-                K_max = V_hat.shape[1]
+            if z == K_max - 1:
+                # Expand room for extra potential clusters (note: a cluster emptied in a later sweep is not reclaimed).
+                members = np.concatenate((members, np.zeros_like(members)), 0)
+                K_max = members.shape[0]
+                buf = np.empty((K_max, D), dtype=work_dtype)
 
-    # drop columns that are zeros (i.e. unused clusters) before returning
-    empty = V_hat.sum(0) == 0
-    return V_hat[:,~empty], loss
+    # Drop unused (all-zero) cluster columns before returning.
+    nonempty = members.any(axis=1)
+    return np.ascontiguousarray(members[nonempty].T), loss
