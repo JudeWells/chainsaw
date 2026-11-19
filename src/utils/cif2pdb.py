@@ -75,8 +75,8 @@ def rename_chains(structure):
                 o.id = c
     return chainmap
 
-def cif2pdb(ciffile):
-    pdbfile = ciffile + ".pdb"
+def cif2pdb(ciffile, pdbfile=None):
+    pdbfile = pdbfile or ciffile + ".pdb"
     strucid = os.path.split(ciffile)[-1].split(".")[0]
     # Read file
     parser = MMCIFParser()
@@ -86,7 +86,7 @@ def cif2pdb(ciffile):
         chainmap = rename_chains(structure)
     except OutOfChainsError:
         logging.error("Too many chains to represent in PDB format")
-        sys.exit(1)
+        raise
 
     for new, old in chainmap.items():
         if new != old:
