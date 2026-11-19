@@ -190,20 +190,30 @@ class PairwiseDomainPredictor(nn.Module):
             return x
 
     @torch.no_grad()
-    def predict(self, x, return_pairwise=True):
+    def predict_network(self, x):
+        """Run distance transform, optional recycling, and pairwise network; return (y_pred, transformed_x)."""
         x = self.distance_transform(x)
         if self.max_recycles > 0:
-            for i in range(self.max_recycles):
+            for _ in range(self.max_recycles):
                 # add recycling channels
                 n_res = x.shape[-1]
                 recycle_channels = torch.zeros(1, 2, n_res, n_res)
                 # Concatenate the original tensor and the zeros tensor along the second dimension
                 x = torch.cat((x, recycle_channels), dim=1)
                 x = self.recycle_predict(x)
-        y_pred = self.predict_pairwise(x)
+        return self.predict_pairwise(x), x
+
+    def assign_domains(self, y_pred, x):
+        """Assign domains from pairwise probabilities and optionally post-process."""
         domain_dicts, confidence = self.domains_from_pairwise(y_pred)
         if self.post_process_domains:
-            domain_dicts = self.post_process(domain_dicts, x) # todo move this to domains from pairwise function
+            domain_dicts = self.post_process(domain_dicts, x)
+        return domain_dicts, confidence
+
+    @torch.no_grad()
+    def predict(self, x, return_pairwise=True):
+        y_pred, x = self.predict_network(x)
+        domain_dicts, confidence = self.assign_domains(y_pred, x)
         if return_pairwise:
             return y_pred, domain_dicts, confidence
         else:
